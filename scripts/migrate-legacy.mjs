@@ -6,7 +6,7 @@ import path from "node:path";
 import fs from "node:fs";
 
 async function migrate() {
-    const targetPath = process.argv[2] || "prisma/dev.db";
+    const targetPath = process.argv[2] || "data/wwv.db";
     const sqlitePath = path.resolve(process.cwd(), targetPath);
     
     if (!fs.existsSync(sqlitePath)) {
