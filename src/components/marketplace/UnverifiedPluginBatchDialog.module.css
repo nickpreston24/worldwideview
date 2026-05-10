@@ -2,21 +2,22 @@
   position: fixed;
   inset: 0;
   z-index: 10000;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: var(--glass-blur);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .dialog {
-  background: #1a1a2e;
+  background: var(--bg-glass);
+  backdrop-filter: var(--glass-blur);
   border: 1px solid rgba(245, 158, 11, 0.3);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 28px 32px;
   max-width: 480px;
   width: 90%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--glass-shadow);
 }
 
 .header {
@@ -59,15 +60,17 @@
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
+  background: var(--bg-glass);
+  border: 1px solid var(--glass-border-inner);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all var(--duration-normal) var(--ease-spring);
 }
 
 .item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-glass-hover);
+  box-shadow: var(--glass-shadow-inner);
+  transform: scale(0.99);
 }
 
 .checkbox {
@@ -101,17 +104,19 @@
 .denyBtn,
 .allowBtn {
   padding: 8px 20px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   border: none;
-  transition: opacity 0.15s;
+  box-shadow: var(--glass-shadow-inner);
+  transition: all var(--duration-normal) var(--ease-spring);
 }
 
 .denyBtn {
-  background: #333;
-  color: #ccc;
+  background: var(--bg-glass);
+  border: 1px solid var(--glass-border-inner);
+  color: var(--text-primary);
 }
 
 .allowBtn {
@@ -121,7 +126,13 @@
 
 .denyBtn:hover,
 .allowBtn:hover {
-  opacity: 0.85;
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+.denyBtn:active,
+.allowBtn:active {
+  transform: scale(0.95);
 }
 
 .allowBtn:disabled {

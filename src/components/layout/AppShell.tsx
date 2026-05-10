@@ -44,6 +44,17 @@ export function AppShell() {
     const bootStartRef = useRef(Date.now());
     const [hostReady, setHostReady] = useState(false);
     const { needsReload, pendingUnverified, approveSelected, denyAll } = useMarketplaceSync(hostReady);
+    const setTheme = useStore((s) => s.setTheme);
+
+    // Hydrate theme on mount
+    useEffect(() => {
+        try {
+            const storedTheme = localStorage.getItem("wwv-theme");
+            if (storedTheme === "light" || storedTheme === "dark") {
+                setTheme(storedTheme);
+            }
+        } catch (e) {}
+    }, [setTheme]);
 
     useEffect(() => {
         const startPlatform = async () => {

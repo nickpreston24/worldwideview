@@ -10,6 +10,7 @@ import { trackEvent } from "@/lib/analytics";
 export function FeedbackDialog() {
     const feedbackDialogOpen = useStore((s) => s.feedbackDialogOpen);
     const setFeedbackDialogOpen = useStore((s) => s.setFeedbackDialogOpen);
+    const showErrorToast = useStore((s) => s.showErrorToast);
 
     const [type, setType] = useState("Bug Report");
     const [description, setDescription] = useState("");
@@ -118,13 +119,17 @@ export function FeedbackDialog() {
                 timestamp: new Date().toISOString(),
             };
 
-            const webhookUrl = process.env.NEXT_PUBLIC_FEEDBACK_WEBHOOK_URL || "https://n8n.arfquant.com/webhook-test/feedback";
+            const webhookUrl = process.env.NEXT_PUBLIC_FEEDBACK_WEBHOOK_URL || "https://n8n.arfquant.com/webhook/feedback";
             
             const response = await fetch(webhookUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
+
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status} ${response.statusText}`);
+            }
 
             trackEvent("submit-feedback", { type });
 
@@ -136,6 +141,7 @@ export function FeedbackDialog() {
             setFeedbackDialogOpen(false);
         } catch (error) {
             console.error("Failed to submit feedback:", error);
+            showErrorToast("Failed to submit feedback. Please try again later.");
         } finally {
             setIsSubmitting(false);
         }

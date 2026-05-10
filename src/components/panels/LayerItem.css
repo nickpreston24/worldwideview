@@ -6,16 +6,23 @@
   padding: var(--space-md);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-smooth);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all var(--duration-normal) var(--ease-spring);
   margin-bottom: var(--space-xs);
 }
 
-.layer-item:hover, .layer-item--selected {
+.layer-item:hover {
   background: var(--bg-glass-hover);
+  border-color: var(--glass-border-inner);
+  box-shadow: var(--glass-shadow-inner);
+  transform: scale(0.99);
 }
 
 .layer-item--selected {
-  box-shadow: inset 2px 0 0 0 var(--accent-cyan);
+  background: var(--bg-glass-active);
+  border-color: rgba(var(--accent-rgb), 0.3);
+  box-shadow: inset 2px 0 0 0 var(--accent-cyan), var(--glass-shadow-inner);
 }
 
 .layer-item__icon {
@@ -97,13 +104,13 @@
   width: 36px;
   height: 20px;
   border-radius: 10px;
-  background: var(--bg-tertiary);
+  background: var(--bg-glass);
   border: 1px solid var(--border-subtle);
   position: relative;
   flex-shrink: 0;
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-smooth),
-              border-color var(--duration-fast) var(--ease-smooth);
+  box-shadow: var(--glass-shadow-inner);
+  transition: all var(--duration-normal) var(--ease-spring);
 }
 
 .layer-item__toggle::after {
@@ -115,8 +122,8 @@
   background: var(--text-muted);
   top: 2px;
   left: 2px;
-  transition: transform var(--duration-fast) var(--ease-bounce),
-              background var(--duration-fast) var(--ease-smooth);
+  box-shadow: var(--glass-shadow);
+  transition: all var(--duration-normal) var(--ease-spring);
 }
 
 .layer-item__toggle--on {
@@ -127,7 +134,7 @@
 .layer-item__toggle--on::after {
   transform: translateX(16px);
   background: var(--accent-cyan);
-  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.5);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.5), var(--glass-shadow);
 }
 
 /* ─── Count ──────────────────────────────────────────────── */

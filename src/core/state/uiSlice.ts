@@ -15,6 +15,7 @@ export interface FloatingStream {
 }
 
 export interface UISlice {
+    theme: "dark" | "light" | "legacy" | "black";
     leftSidebarOpen: boolean;
     rightSidebarOpen: boolean;
     configPanelOpen: boolean;
@@ -28,6 +29,8 @@ export interface UISlice {
     highlightLayerId: string | null;
     openMobilePanel: "left" | "right" | null;
     mobileRightPanelGlow: boolean;
+    toggleTheme: () => void;
+    setTheme: (theme: "dark" | "light" | "legacy" | "black") => void;
     toggleLeftSidebar: () => void;
     toggleRightSidebar: () => void;
     toggleConfigPanel: () => void;
@@ -50,6 +53,7 @@ export interface UISlice {
 }
 
 export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set) => ({
+    theme: typeof window !== "undefined" ? (localStorage.getItem("wwv-theme") as any) || "black" : "black",
     leftSidebarOpen: true,
     rightSidebarOpen: false,
     configPanelOpen: true,
@@ -64,6 +68,23 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set) => (
     openMobilePanel: null,
     mobileRightPanelGlow: false,
     feedbackDialogOpen: false,
+    toggleTheme: () => set((state) => {
+        const nextTheme = {
+            "dark": "black",
+            "black": "light",
+            "light": "legacy",
+            "legacy": "dark"
+        }[state.theme] as "dark" | "light" | "legacy" | "black";
+        
+        try { localStorage.setItem("wwv-theme", nextTheme); } catch (e) {}
+        document.documentElement.setAttribute('data-theme', nextTheme);
+        return { theme: nextTheme };
+    }),
+    setTheme: (theme) => set(() => {
+        try { localStorage.setItem("wwv-theme", theme); } catch (e) {}
+        document.documentElement.setAttribute('data-theme', theme);
+        return { theme };
+    }),
     toggleLeftSidebar: () =>
         set((state) => ({ leftSidebarOpen: !state.leftSidebarOpen })),
     toggleRightSidebar: () =>

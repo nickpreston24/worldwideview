@@ -12,8 +12,10 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-lg);
-    background: var(--bg-primary);
-    border-left: 1px solid var(--border-subtle);
+    background: var(--bg-glass);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-left: 1px solid var(--glass-border);
     padding: var(--space-md);
     overflow-y: auto;
     overflow-x: hidden;
@@ -36,18 +38,21 @@
     align-items: center;
     gap: var(--space-xs);
     padding: var(--space-sm) var(--space-md);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-subtle);
+    background: var(--bg-glass);
+    border: 1px solid var(--glass-border-inner);
     border-radius: var(--radius-md);
     max-width: 140px;
     text-align: center;
     cursor: pointer;
-    transition: all var(--duration-fast) var(--ease-smooth);
+    box-shadow: var(--glass-shadow-inner);
+    transition: all var(--duration-normal) var(--ease-spring);
 }
 
 .demo-ad-strip__banner:hover {
+    background: var(--bg-glass-hover);
     border-color: rgba(var(--accent-rgb), 0.3);
-    box-shadow: var(--glow-cyan);
+    box-shadow: var(--glass-shadow-inner), 0 0 15px rgba(var(--accent-rgb), 0.15);
+    transform: scale(0.98);
 }
 
 .demo-ad-strip__banner-label {
@@ -71,20 +76,22 @@
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-subtle);
+    background: var(--bg-glass);
+    border: 1px solid var(--glass-border-inner);
     color: var(--text-muted);
     font-size: 12px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: color var(--duration-fast) var(--ease-smooth);
+    box-shadow: var(--glass-shadow);
+    transition: all var(--duration-normal) var(--ease-spring);
 }
 
 .demo-ad-strip__close:hover {
     color: var(--text-primary);
-    border-color: var(--text-primary);
+    background: var(--bg-glass-hover);
+    transform: scale(1.1);
 }
 
 /* Hide on mobile — ads shouldn't show on small screens */
