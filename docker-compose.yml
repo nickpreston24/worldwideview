@@ -44,7 +44,7 @@ services:
       - "${WWV_SKIP_LOCAL_DB:-}"
 
   wwv-data-engine:
-    build: ../wwv-data-engine
+    build: ../wwv-data-engine-public
     ports:
       - '5000:5000'
     environment:
