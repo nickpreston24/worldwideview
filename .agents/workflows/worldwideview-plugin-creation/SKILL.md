@@ -7,7 +7,7 @@ description: Use when creating a new plugin, adding a new data source, or debugg
 
 ## Overview
 
-A WorldWideView plugin is a self-contained data source that renders geospatial entities on a 3D Cesium globe. Every plugin implements the `WorldPlugin` interface from the SDK and connects to a **data engine** (Fastify + Redis) that streams live data over WebSocket.
+A WorldWideView plugin is a self-contained data source that renders geospatial entities on a 3D Cesium globe. Every plugin implements the `WorldPlugin` interface from the SDK and connects to the **V2 Data Engine** (Fastify + Redis) that streams live data over WebSocket.
 
 **Core principle:** Plugins are code bundles. The engine pushes data. The frontend renders it. There is no REST polling between frontend and engine — only WebSocket streaming.
 
@@ -54,7 +54,7 @@ digraph plugin_type {
 | Sandbox plugin | `local-plugins/wwv-plugin-<name>/` | Local development workspace for new plugins |
 | Plugin class | `packages/wwv-plugin-<name>/src/index.ts` | Implements `WorldPlugin` interface |
 | Package metadata | `packages/wwv-plugin-<name>/package.json` | `worldwideview` block with id, type, format, category |
-| Engine seeder | `wwv-data-engine/src/seeders/<name>.ts` | Fetches external data → Redis → WS broadcast |
+| Engine seeder | `wwv-seeders/src/seeders/<name>.ts` | Fetches external data → Redis → WS broadcast |
 | Build config | `next.config.ts` → `transpilePackages` | Required for monorepo packages |
 | TS alias | `tsconfig.json` → `paths` | Required for monorepo packages |
 | Registration | `src/core/plugins/PluginRegistry.ts` | Register plugin at boot |
@@ -257,7 +257,7 @@ Run `pnpm install` from project root after creating the package.
 
 ## Part 2: Data Engine Seeder
 
-The data engine is a **content-agnostic runner** (`wwv-data-engine` public, deployed via Docker). It runs Fastify on port 5000 with Redis caching and WebSocket streaming. Seeders are volume-mounted from `local-seeders/` (dev) or downloaded from GitHub Releases (production).
+The data engine is a **content-agnostic Host Environment runner** (`wwv-data-engine`, deployed via Docker). It runs Fastify on port 5000 with Redis caching and WebSocket streaming. Seeders are volume-mounted from `local-seeders/` (dev) or dynamically downloaded and linked via pnpm workspaces from GitHub Releases (`wwv-seeders` and `wwv-seeders-private`) in production.
 
 > [!IMPORTANT]
 > If you are **migrating** an existing plugin from `packages/` to `local-plugins/`, use the `migrate-legacy-plugin` skill instead. It covers both frontend routing fixes AND backend seeder build fixes as two independent concerns.
@@ -373,9 +373,12 @@ interface SeederDefinition {
 }
 ```
 
-### 2.4 Auto-Discovery
+### 2.4 Auto-Discovery & Dependencies
 
-`src/seeders/index.ts` dynamically `require()`s every `.ts`/`.js` file in the seeders directory (except `index.ts` and test files). **You do not need to manually import your seeder** — just create the file and call `registerSeeder()` at module scope.
+The V2 engine dynamically `import()`s every compiled `.mjs` file in the extracted seeder workspaces. **You do not need to manually import your seeder** — just create the file and call `registerSeeder()` at module scope.
+
+> [!IMPORTANT]
+> **V2 Engine Dependencies:** Seeders run in the unified V2 host environment which provides common packages (`zod`, `ws`, `undici`, etc.). **You MUST NOT bundle these dependencies** in your seeder's `dist` folder. Leave them externalized in your build config.
 
 ### 2.5 SQLite History (Optional)
 
@@ -416,7 +419,7 @@ db.exec(`
 
 **Engine → Client:**
 ```json
-{ "type": "welcome", "engine": "wwv-data-engine", "plugins": ["earthquakes", "wildfires", ...] }
+{ "type": "welcome", "engine": "wwv-data-engine-v2", "plugins": ["earthquakes", "wildfires", ...] }
 { "type": "data", "pluginId": "earthquakes", "payload": { "items": [...], "totalCount": 42 } }
 ```
 
@@ -539,7 +542,7 @@ Categories are **lowercase**: `"aviation"` not `"Aviation"`, `"natural-disaster"
 - [ ] **Frontend:** Added path alias in `tsconfig.json`
 - [ ] **Frontend:** Registered via `pluginRegistry` + `pluginManager` in `AppShell.tsx`
 - [ ] **Frontend:** `renderEntity()` doesn't mix point/billboard properties
-- [ ] **Engine:** Seeder file in `src/seeders/<name>.ts`
+- [ ] **Engine:** Seeder file in `wwv-seeders/src/seeders/<name>.ts` (or private repo)
 - [ ] **Engine:** `registerSeeder({ name })` matches frontend plugin `id`
 - [ ] **Engine:** Calls `setLiveSnapshot()` with correct plugin ID key
 - [ ] **Engine:** Data shape is an object with `items` array (or plugin implements `mapWebsocketPayload`)

@@ -46,12 +46,12 @@ html, body {
 /* ─── Glass Panel ─────────────────────────────────────────── */
 .glass-panel {
   background: var(--bg-glass);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: var(--glass-border);
   box-shadow: var(--glass-border-inner), var(--glass-shadow);
   border-radius: var(--radius-lg);
   transition: all var(--duration-fast) var(--ease-smooth);
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
 }
 
 /* ─── Page Root (flex row: app + optional ad strip) ───────── */
@@ -70,7 +70,7 @@ html, body {
   min-width: 0;
   height: 100vh;
   overflow: hidden;
-  isolation: isolate; /* contain fixed children so ad strip renders on top */
+  /* isolation: isolate; removed because it breaks backdrop-filter in chromium under some stacking contexts */
 }
 
 .app-shell__globe {
@@ -214,60 +214,6 @@ html, body {
   min-height: 0;
 }
 
-/* ─── Discord Sidebar Link ────────────────────────────────── */
-.discord-sidebar-link {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-md) var(--space-lg);
-  margin-top: var(--space-md);
-  background: linear-gradient(135deg, rgba(88, 101, 242, 0.15), rgba(88, 101, 242, 0.05));
-  border: 1px solid rgba(88, 101, 242, 0.25);
-  border-radius: var(--radius-md);
-  color: #b8bfff;
-  text-decoration: none;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-smooth);
-  flex-shrink: 0;
-}
-
-.discord-sidebar-link:hover {
-  background: linear-gradient(135deg, rgba(88, 101, 242, 0.3), rgba(88, 101, 242, 0.12));
-  border-color: rgba(88, 101, 242, 0.5);
-  color: #dee1ff;
-  box-shadow: 0 0 20px rgba(88, 101, 242, 0.25);
-  transform: translateY(-1px);
-}
-
-/* ─── Feedback Sidebar Link ────────────────────────────────── */
-.feedback-sidebar-link {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-md) var(--space-lg);
-  margin-top: var(--space-md);
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(34, 211, 238, 0.05));
-  border: 1px solid rgba(34, 211, 238, 0.25);
-  border-radius: var(--radius-md);
-  color: var(--accent-cyan);
-  text-decoration: none;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-smooth);
-  flex-shrink: 0;
-  justify-content: center;
-}
-
-.feedback-sidebar-link:hover {
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.3), rgba(34, 211, 238, 0.12));
-  border-color: rgba(34, 211, 238, 0.5);
-  color: #e2e8f0;
-  box-shadow: var(--glow-cyan);
-  transform: translateY(-1px);
-}
 
 /* ─── Sidebar ─────────────────────────────────────────────── */
 .sidebar {
