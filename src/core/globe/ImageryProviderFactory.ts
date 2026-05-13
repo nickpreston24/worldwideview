@@ -1,6 +1,5 @@
 import {
     BingMapsImageryProvider,
-    Ion,
     IonImageryProvider,
     ArcGisMapServerImageryProvider,
     UrlTemplateImageryProvider,
@@ -67,12 +66,30 @@ export function createOsmProvider() {
     });
 }
 
-async function ionOrOsmFallback(assetId: number) {
-    if (!Ion.defaultAccessToken) {
-        console.warn(`[ImageryProvider] No Cesium Ion token — falling back to OSM`);
-        return createOsmProvider();
+function createGoogleProvider(lyrs: string) {
+    return new UrlTemplateImageryProvider({
+        url: `https://mt{s}.google.com/vt/lyrs=${lyrs}&x={x}&y={y}&z={z}`,
+        subdomains: ["0", "1", "2", "3"]
+    });
+}
+
+async function tieredFallback(ionAssetId: number, googleLyrs: string) {
+    // 1. Try Google XYZ tiles
+    try {
+        return createGoogleProvider(googleLyrs);
+    } catch (googleErr) {
+        console.warn("[ImageryProvider] Google tiles failed, trying Bing via Ion:", googleErr);
     }
-    return await IonImageryProvider.fromAssetId(assetId);
+
+    // 2. Try Bing via Cesium Ion (free shared token)
+    try {
+        return await IonImageryProvider.fromAssetId(ionAssetId);
+    } catch (ionErr) {
+        console.warn("[ImageryProvider] Ion/Bing failed, falling back to OSM:", ionErr);
+    }
+
+    // 3. OSM as last resort
+    return createOsmProvider();
 }
 
 export async function createImageryProvider(layerId: string) {
@@ -86,7 +103,7 @@ export async function createImageryProvider(layerId: string) {
                     mapStyle: BingMapsStyle.AERIAL,
                 });
             }
-            return await ionOrOsmFallback(2);
+            return await tieredFallback(2, "s");
 
         case "bing-labels":
             if (bingKey) {
@@ -95,7 +112,7 @@ export async function createImageryProvider(layerId: string) {
                     mapStyle: BingMapsStyle.AERIAL_WITH_LABELS,
                 });
             }
-            return await ionOrOsmFallback(3);
+            return await tieredFallback(3, "y");
 
         case "bing-road":
             if (bingKey) {
@@ -104,7 +121,7 @@ export async function createImageryProvider(layerId: string) {
                     mapStyle: BingMapsStyle.ROAD,
                 });
             }
-            return await ionOrOsmFallback(4);
+            return await tieredFallback(4, "m");
 
         case "osm":
             return createOsmProvider();
@@ -115,7 +132,7 @@ export async function createImageryProvider(layerId: string) {
             );
 
         case "blue-marble":
-            return await ionOrOsmFallback(3845);
+            return await tieredFallback(3845, "s");
 
         default:
             return createOsmProvider();
