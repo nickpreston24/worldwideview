@@ -50,6 +50,8 @@
     "local-plugins",
     "packages/*/backend",
     "worldmonitor",
-    ".worktrees"
+    ".worktrees",
+    "tests",
+    "playwright.config.ts"
   ]
 }
