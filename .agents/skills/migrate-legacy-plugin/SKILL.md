@@ -1,13 +1,13 @@
 ---
 name: migrate-legacy-plugin
-description: Use when moving a WorldWideView plugin from packages/ (or ../worldwideview-plugins/packages/) to local-plugins/, converting legacy plugins to the new Engine & Payload architecture, or when a plugin hardcodes engine URLs, bundles Node.js built-ins, or uses import.meta.url for file paths inside Docker containers
+description: Use when moving a WorldWideView plugin from packages/ to local-plugins/ (the wwv-plugins community repo clone), converting legacy plugins to the new Engine & Payload architecture, or when a plugin hardcodes engine URLs, bundles Node.js built-ins, or uses import.meta.url for file paths inside Docker containers
 ---
 
 # Migrate Legacy Plugin to Modern Architecture
 
 ## Overview
 
-Moves a WorldWideView plugin from the old `packages/` monorepo location (or the external `worldwideview-plugins` repository) into the `local-plugins/` directory (which is itself a publishable Git repository). Simultaneously fixes two **independent** concerns that legacy plugins always have:
+Moves a WorldWideView plugin from the old `packages/` monorepo location into the `local-plugins/` directory (which is a git clone of `github.com/silvertakana/wwv-plugins` — the canonical community plugin repo). Simultaneously fixes two **independent** concerns that legacy plugins always have:
 
 1. **Frontend routing** — hardcoded engine URLs must be replaced with `resolveEngineUrl()`
 2. **Backend seeder build** — ESM bundling and container-aware file paths
@@ -16,7 +16,7 @@ Moves a WorldWideView plugin from the old `packages/` monorepo location (or the 
 
 ## When to Use
 
-- Moving a plugin from `packages/wwv-plugin-<name>/` (or `../worldwideview-plugins/packages/wwv-plugin-<name>/`) to `local-plugins/wwv-plugin-<name>/`
+- Moving a plugin from `packages/wwv-plugin-<name>/` to `local-plugins/wwv-plugin-<name>/`
 - Plugin's `fetch()` hardcodes a URL like `https://dataengine.worldwideview.dev`
 - Plugin uses `this.context?.apiBaseUrl` instead of `resolveEngineUrl()`
 - Backend seeder crashes with `Dynamic require` or `ERR_INVALID_FILE_URL_PATH` in Docker
@@ -59,14 +59,13 @@ Copy the plugin from `packages/` (or the external plugins repo) to `local-plugin
 # From project root (if in local packages/)
 cp -r packages/wwv-plugin-<name> local-plugins/wwv-plugin-<name>
 
-# OR from external plugins repository:
-cp -r ../worldwideview-plugins/packages/wwv-plugin-<name> local-plugins/wwv-plugin-<name>
 ```
 
 The `local-plugins/` directory is:
 - Part of the pnpm workspace (`pnpm-workspace.yaml` includes `local-plugins/*`)
-- Gitignored from the main worldwideview repo (it IS its own Git repo — `worldwideview-plugins`)
+- Gitignored from the main worldwideview repo — it IS its own git repo (`github.com/silvertakana/wwv-plugins`, the canonical community plugin repo)
 - Auto-discovered by the `dev:plugins` watcher during `pnpm dev`
+- Run `cd local-plugins && git pull` before working to fetch the latest community plugins
 
 ## Step 2: Fix Frontend Routing (getEngineUrl)
 
@@ -220,7 +219,7 @@ local-seeders/community/packages/gps-jamming/
 
 After moving to `local-plugins/`, remove the old references:
 
-- [ ] Delete `packages/wwv-plugin-<name>/` directory (or the source directory in `../worldwideview-plugins/packages/`)
+- [ ] Delete `packages/wwv-plugin-<name>/` directory
 - [ ] Remove from `transpilePackages` in `next.config.ts` (if present)
 - [ ] Remove path alias from `tsconfig.json` `paths` (if present)
 - [ ] Remove any registration in `AppShell.tsx` (now loaded dynamically)

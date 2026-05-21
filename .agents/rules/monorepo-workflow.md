@@ -15,7 +15,7 @@ Strict rules for operating within the `pnpm` monorepo workspace environment stru
 
 - The Next.js frontend is located at root `.`.
 - Individual standalone plugins are located at `packages/wwv-plugin-[name]`.
-- For heavy plugin processing, data engine seeders are located at `local-seeders/community/[name]` or `local-seeders/private/[name]`.
+- For heavy plugin processing, data engine seeders are located at `local-seeders/community/[name]` or `local-seeders/private/[name]`. **These are separate git clones** (`github.com/silvertakana/wwv-seeders` and `wwv-seeders-private` respectively) — `pnpm install` from the main repo does NOT pull seeder code. Run `git pull` inside each clone to get upstream changes.
 
 ## Critical Workspace Rule
 

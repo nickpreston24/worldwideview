@@ -34,6 +34,7 @@ Agents MUST respect these at all times:
 - **Nine Zustand slices** under `src/core/state/`: access via `useStore` in React, `useStore.getState()` elsewhere.
 - **Primitive-based rendering**: Point/Billboard/Label/Polyline collections only. Never mix `size`/`outlineWidth`/`outlineColor` onto billboard entities — GPU silently clips.
 - **Three editions** via `NEXT_PUBLIC_WWV_EDITION` (`local` / `cloud` / `demo`); feature flags in `src/core/edition.ts`.
+- **Nested git clones**: `local-plugins/` (community plugins) and `local-seeders/community/` + `local-seeders/private/` (seeders) are **independent git repos cloned inside this repo, gitignored from it**. Each has its own remote. Run `git pull` inside each before editing; commits/pushes there go to their own upstream — not to `worldwideview`. See `.agents/context/ecosystem-repositories.md`.
 
 ---
 

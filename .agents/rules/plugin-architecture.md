@@ -162,9 +162,9 @@ DataBus.getInstance().emit('dataUpdated', {
 });
 ```
 
-## Local Plugin Development (Sandbox)
+## Local Plugin Development
 
-To rapidly iterate on plugins without polluting the core monorepo `packages/` directory or git history, use the local devkit:
+`local-plugins/` is a **git clone of the canonical community plugin repo** (`github.com/silvertakana/wwv-plugins`), gitignored from the main `worldwideview` repo. It has its own remote — commits and pushes go upstream to that public repo, not to `worldwideview`. Run `cd local-plugins && git pull` before working to get the latest community plugins.
 
 1. **Create**: Run `node packages/wwv-cli/dist/index.js create <name> --local` to scaffold a full plugin structure inside the `local-plugins/` directory.
 2. **Develop**: Running `pnpm dev` or `pnpm dev:all` automatically spawns the `dev:plugins` watcher. Any changes made to plugins in `local-plugins/` will be instantly rebuilt using Vite (externalizing large globals) and synced to `public/plugins-local/` for hot-reloading.
@@ -292,7 +292,7 @@ When implementing the `token-exchange` flow or communicating across domains, all
 Starting in 2026, WorldWideView adopted the **Architect and Toolbox** paradigm using NPM global tools, ensuring a fully decoupled developer experience. Plugin repositories contain *pure code* with absolutely no platform hosting boilerplate (e.g. no embedded docker-compose files).
 
 ### The Developer Experience
-1. **Scaffold**: `node packages/wwv-cli/dist/index.js create <name> --local` (Creates sandbox inside `local-plugins/`)
+1. **Scaffold**: `node packages/wwv-cli/dist/index.js create <name> --local` (Creates plugin inside `local-plugins/` — the community plugin repo clone)
 2. **Install**: `pnpm install` (Links dependencies via workspace)
 3. **Develop**: `pnpm dev:all` (Starts frontend, data engine, and plugin watcher dynamically)
 
@@ -475,10 +475,11 @@ While avoiding monolithic coupling, WWV plans to implement the following high-UX
 
 ## Local Plugins & Seeders
 
-### 1. Local Sandbox Workflow
+### 1. Local Plugin Workflow (`local-plugins/` — community plugin repo clone)
+`local-plugins/` is a git clone of `github.com/silvertakana/wwv-plugins` with its own remote. Pull latest before starting: `cd local-plugins && git pull`.
 - **Scaffold**: `node packages/wwv-cli/dist/index.js create` (creates inside `local-plugins/wwv-plugin-<name>` by default, or `packages/` if `--core` is used).
 - **Develop**: `pnpm dev` triggers hot-reloading via `dev:plugins` watch script.
-- **Publish**: `node packages/wwv-cli/dist/index.js publish <name> [--org <your-org>]` publishes the plugin from the project root. (No linking is needed; the sandbox natively functions in the workspace).
+- **Publish**: `node packages/wwv-cli/dist/index.js publish <name> [--org <your-org>]` publishes the plugin from the project root. Commit and push from inside `local-plugins/` to contribute back to the community repo.
 
 ### 2. Data Engine Seeders
 Seeders in `wwv-data-engine/src/seeders/` provide the backend data.
