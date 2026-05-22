@@ -1,10 +1,12 @@
 name: Garbage Collector
 
 on:
+  schedule:
+    - cron: '0 6 * * *'   # 06:00 UTC daily
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Dry run — post report only, open no PRs/Issues'
+        description: 'Dry run — report findings only, open no PRs or Issues (recommended for first 3–5 days)'
         required: false
         default: 'true'
         type: choice
@@ -18,97 +20,77 @@ on:
         required: false
         default: '180'
 
-  schedule:
-    - cron: '0 3 * * 1'
+concurrency:
+  group: garbage-collector
+  cancel-in-progress: true
 
 permissions:
-  contents: read
-  issues: write
+  contents: write
   pull-requests: write
+  issues: write
 
 jobs:
-  gc-scan:
-    name: Scan for stale artefacts
+  collect:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     env:
-      DRY_RUN:      ${{ github.event.inputs.dry_run    || 'true' }}
+      GH_TOKEN:     ${{ secrets.GC_BOT_TOKEN }}
+      DRY_RUN:      ${{ github.event.inputs.dry_run      || 'false' }}
       DAYS_BRANCH:  ${{ github.event.inputs.days_branch  || '90' }}
       DAYS_COMMENT: ${{ github.event.inputs.days_comment || '180' }}
-      GH_TOKEN:     ${{ secrets.GC_BOT_TOKEN }}
 
     steps:
-      - name: Checkout (full history for git blame)
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          token: ${{ secrets.GC_BOT_TOKEN }}
+          fetch-depth: 0          # full history required for git blame and branch age
+          token: ${{ secrets.GC_BOT_TOKEN }}   # PAT so pushed branches trigger CI
 
-      - name: Set up Node
+      - name: Configure git user
+        run: |
+          git config user.name 'WorldWideView GC Bot'
+          git config user.email 'gc-bot@users.noreply.github.com'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version: '22'
+          cache: 'pnpm'
 
-      - name: Run GC scan
-        id: scan
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run deterministic scan
         run: |
           node scripts/gc-scan.mjs \
+            --out gc-findings.json \
             --days-branch=${{ env.DAYS_BRANCH }} \
-            --days-comment=${{ env.DAYS_COMMENT }} \
-            > gc-report.json
-          FINDINGS_COUNT=$(node -e "const r=require('./gc-report.json');console.log(r.findings.length)")
-          echo "findings_count=$FINDINGS_COUNT" >> "$GITHUB_OUTPUT"
-          echo "GC scan complete — $FINDINGS_COUNT finding(s)"
+            --days-comment=${{ env.DAYS_COMMENT }}
 
-      - name: Upload raw report
+      - name: Upload findings artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gc-report
-          path: gc-report.json
+          name: gc-findings-${{ github.run_id }}
+          path: gc-findings.json
           retention-days: 30
 
-      - name: Find or create tracking issue
-        id: tracking
-        run: |
-          # gh issue list output: number<TAB>title<TAB>...
-          ISSUE_NUMBER=$(gh issue list \
-            --label gc-bot \
-            --state open \
-            --limit 1 | awk '{print $1}')
+      - name: Run Garbage Collector agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          model: claude-haiku-4-5-20251001
+          prompt: |
+            You are the WorldWideView Garbage Collector agent running headless in GitHub Actions.
 
-          if [ -z "$ISSUE_NUMBER" ]; then
-            ISSUE_NUMBER=$(gh issue create \
-              --title "🗑️ Garbage Collector — tracking issue" \
-              --body "This issue is updated automatically each time the GC scanner runs." \
-              --label gc-bot | grep -oE '[0-9]+$')
-            echo "Created tracking issue #$ISSUE_NUMBER"
-          else
-            echo "Found existing tracking issue #$ISSUE_NUMBER"
-          fi
-          echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+            Read `.agents/rules/garbage-collection.md` for your charter and all guard rails.
+            Read `gc-findings.json` for the pre-scanned findings produced by `scripts/gc-scan.mjs`.
+            Check the DRY_RUN environment variable — if "true", post a dry-run summary only (no PRs or Issues).
+            Execute the full sweep procedure described in `.agents/agents/garbage-collector.md`.
 
-      - name: Build report comment
-        id: report
-        run: |
-          node scripts/gc-format-report.mjs gc-report.json "$DRY_RUN" > report-comment.md
-          echo "Built report comment ($(wc -c < report-comment.md) bytes)"
-
-      - name: Post scan report as comment
-        run: |
-          gh issue comment "${{ steps.tracking.outputs.issue_number }}" --body-file report-comment.md
-
-      - name: Open stale-branch PRs (live mode only)
-        if: env.DRY_RUN == 'false'
-        run: |
-          node -e "
-          const { execSync } = require('child_process');
-          const r = require('./gc-report.json');
-          const merged = r.findings.filter(f => f.type === 'stale-branch' && f.isMerged);
-          for (const b of merged.slice(0, 5)) {
-            try {
-              const body = 'Branch merged ' + b.ageDays + ' days ago — safe to delete.\\nLast commit: ' + b.lastSubject + '\\nAuthor: ' + b.author;
-              execSync('gh issue create --title "chore(gc): delete merged stale branch ' + b.branch + '" --body "' + body + '" --label gc-bot', { stdio: 'inherit' });
-            } catch(e) { console.error(e.message); }
-          }
-          "
+            Do not scan the codebase yourself. Work only from gc-findings.json.
+          allowed_tools: 'Bash,Read,Edit,Write,Grep,Glob'

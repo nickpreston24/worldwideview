@@ -21,12 +21,16 @@ node_modules/
 /.agents/plans
 /.agents/research/
 /.agents/context/
+/.agents/settings.local.json
 
 # performance
 /performance/
 
 # artifacts
 /artifacts/
+
+# gc bot — generated scan output, never commit
+gc-findings.json
 
 # scripts (tracked, but temporary scratchpads should go in /local-scripts/)
 
