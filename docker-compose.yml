@@ -21,6 +21,7 @@ services:
         required: false
     environment:
       - "AUTH_SECRET=${AUTH_SECRET:-default_secret_for_local_dev}"
+      - "ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY:-local_dev_encryption_key_change_in_prod}"
       - "WWV_DEMO_ADMIN_SECRET=${WWV_DEMO_ADMIN_SECRET:-}"
       - "WWV_BRIDGE_TOKEN=${WWV_BRIDGE_TOKEN:-}"
       - "DATABASE_URL=postgresql://postgres:postgres@db:5432/worldwideview?schema=public"
@@ -58,7 +59,7 @@ services:
     command: >
       sh -c "
       echo 'Syncing workspace dependencies...' &&
-      cd $$SEEDERS_DIR/community && CI=true pnpm install --ignore-scripts && pnpm -r rebuild better-sqlite3 esbuild &&
+      if [ -d \"$$SEEDERS_DIR/community\" ]; then cd $$SEEDERS_DIR/community && CI=true pnpm install --ignore-scripts && pnpm -r rebuild better-sqlite3 esbuild; fi &&
       if [ -d \"$$SEEDERS_DIR/private\" ]; then cd $$SEEDERS_DIR/private && CI=true pnpm install --ignore-scripts && pnpm -r rebuild better-sqlite3 esbuild; fi &&
       cd /app && node dist/server.js"
     ports:
