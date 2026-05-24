@@ -1,4 +1,19 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+const { mockUndiciF, mockDnsLookup } = vi.hoisted(() => ({
+    mockUndiciF: vi.fn(),
+    mockDnsLookup: vi.fn(),
+}));
+
+vi.mock("dns/promises", () => ({
+    default: { lookup: mockDnsLookup },
+}));
+
+vi.mock("undici", async (importOriginal) => {
+    const original = await importOriginal<typeof import("undici")>();
+    return { ...original, fetch: mockUndiciF };
+});
+
 import { safeFetch, validateOrigin, isPrivateIP } from "./ssrf";
 
 describe("SSRF Protection Utility", () => {
@@ -68,23 +83,55 @@ describe("SSRF Protection Utility", () => {
     });
 
     describe("safeFetch", () => {
+        const PUBLIC_IP = "93.184.216.34";
+
+        beforeEach(() => {
+            vi.clearAllMocks();
+            process.env.PROXY_HOST_ALLOWLIST = "*";
+        });
+
+        afterEach(() => {
+            delete process.env.PROXY_HOST_ALLOWLIST;
+        });
+
         it("should reject private IPs immediately", async () => {
-            process.env.PROXY_HOST_ALLOWLIST = "*"; // bypass allowlist for these tests
             await expect(safeFetch("https://127.0.0.1/data")).rejects.toThrow(/SSRF/);
             await expect(safeFetch("https://169.254.169.254/latest/meta-data")).rejects.toThrow(/SSRF/);
         });
 
-        it("should enforce size limits", async () => {
-            // Because safeFetch will attempt DNS lookup, we'd need to mock it if we wanted to test this in isolation.
-            // But since this is a unit test, we can trust the return is a standard fetch wrapped with size enforcement.
-            // The size limits are enforced on the stream pull.
-            const result = safeFetch;
-            expect(typeof result).toBe("function");
+        it("enforces maxSize — responses exceeding the limit error on body read", async () => {
+            mockDnsLookup.mockResolvedValue({ address: PUBLIC_IP, family: 4 });
+            const oversized = new Uint8Array(11); // 11 bytes > 10-byte limit
+            const stream = new ReadableStream<Uint8Array>({
+                start(controller) {
+                    controller.enqueue(oversized);
+                    controller.close();
+                },
+            });
+            mockUndiciF.mockResolvedValueOnce(new Response(stream, { status: 200 }));
+
+            const response = await safeFetch("https://example.com/feed", { maxSize: 10 });
+            await expect(response.text()).rejects.toThrow(/size exceeded/);
         });
 
-        it("should use undici dispatcher to pin the DNS resolution", async () => {
-            // Again, a full mock is complex, but we know it now uses undici.
-            expect(true).toBe(true);
+        it("uses undici dispatcher pinned to the resolved IP and does not follow redirects", async () => {
+            mockDnsLookup.mockResolvedValue({ address: PUBLIC_IP, family: 4 });
+            // safeFetch uses redirect:"manual" — this 301 must not be followed
+            mockUndiciF.mockResolvedValueOnce(
+                new Response(null, { status: 301, headers: { Location: "https://evil-rebind.example.com" } })
+            );
+
+            const response = await safeFetch("https://example.com/feed");
+
+            // DNS resolved exactly once; redirect was NOT followed (fetch still once)
+            expect(mockDnsLookup).toHaveBeenCalledOnce();
+            expect(mockUndiciF).toHaveBeenCalledOnce();
+            expect(response.status).toBe(301);
+
+            // fetch was called with a dispatcher (undici Agent) and redirect:"manual"
+            const callOpts = mockUndiciF.mock.calls[0][1] as Record<string, unknown>;
+            expect(callOpts.dispatcher).toBeDefined();
+            expect(callOpts.redirect).toBe("manual");
         });
     });
 });

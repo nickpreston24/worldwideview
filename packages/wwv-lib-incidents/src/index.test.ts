@@ -1,21 +1,15 @@
 /**
  * Guard tests for the BaseIncidentPlugin WebSocket payload contract.
  *
- * CONTEXT — The bug being guarded against:
+ * CONTEXT — The bug this suite guards against (now fixed):
  *   WsClient.handleDataMessage (src/core/data/WsClient.ts, lines 166-190) has three branches:
  *     1. Plugin has `mapWebsocketPayload` → called with raw payload → must return GeoEntity[]
  *     2. No handler AND payload IS a flat array → used directly (timestamps normalised)
  *     3. No handler AND payload is ANY OTHER object → silently dropped (console.warn + return)
  *
- *   BaseIncidentPlugin currently has NO `mapWebsocketPayload`. The canonical data-engine
- *   scheduler wraps snapshots as `{ source, fetchedAt, items, totalCount }` (an object, not
- *   an array), so branch 3 fires for every BaseIncidentPlugin subclass whose seeder uses the
- *   standard scheduler wrapper — including the earthquakes plugin.
- *
- * TEST STRATEGY:
- *   - it.fails(...)  → asserts the DESIRED post-fix behavior; currently fails → proves the bug.
- *                      CI will flip these to green once BaseIncidentPlugin gains mapWebsocketPayload.
- *   - it(...)        → asserts current working behaviour that must NOT regress.
+ *   BaseIncidentPlugin now provides a default `mapWebsocketPayload` that unwraps the three
+ *   common payload shapes (scheduler envelope, GeoJSON FeatureCollection, flat array).
+ *   Subclasses may override for domain-specific shapes.
  */
 
 import { describe, it, expect } from "vitest";
@@ -128,19 +122,8 @@ function simulateWsClientDispatch(
 describe("BaseIncidentPlugin — WebSocket payload contract", () => {
 
     describe("scheduler-wrapped payload { source, fetchedAt, items, totalCount }", () => {
-        /**
-         * DESIRED behavior: BaseIncidentPlugin.mapWebsocketPayload should unwrap the
-         * canonical scheduler envelope and return the items array as GeoEntity[].
-         *
-         * CURRENT state: the method does not exist on BaseIncidentPlugin, so
-         * simulateWsClientDispatch returns null (silent drop) instead of the items.
-         *
-         * This test is marked it.fails so CI proves the bug today and will automatically
-         * turn green once the fix is landed.
-         */
-        it.fails(
-            "unwraps { source, fetchedAt, items, totalCount } and returns items as GeoEntity[] " +
-            "(CURRENTLY FAILS — BaseIncidentPlugin has no mapWebsocketPayload)",
+        it(
+            "unwraps { source, fetchedAt, items, totalCount } and returns items as GeoEntity[]",
             () => {
                 const plugin = new MinimalIncidentPlugin();
                 const entity1 = makeEntity("eq-1");
@@ -164,26 +147,6 @@ describe("BaseIncidentPlugin — WebSocket payload contract", () => {
             }
         );
 
-        /**
-         * Documents the CURRENT broken behaviour explicitly.
-         * When the fix lands, this test should be DELETED (the positive assertion above replaces it).
-         */
-        it(
-            "currently drops the wrapped payload silently (returns null) because mapWebsocketPayload is absent",
-            () => {
-                const plugin = new MinimalIncidentPlugin();
-                const wrappedPayload = {
-                    source: "usgs-earthquake-feed",
-                    fetchedAt: "2025-01-01T00:00:00Z",
-                    items: [makeEntity("eq-1")],
-                    totalCount: 1,
-                };
-
-                // simulateWsClientDispatch returns null to represent the silent drop
-                const result = simulateWsClientDispatch(plugin, wrappedPayload);
-                expect(result).toBeNull();
-            }
-        );
     });
 
     describe("flat GeoEntity[] payload", () => {
@@ -219,17 +182,8 @@ describe("BaseIncidentPlugin — WebSocket payload contract", () => {
     });
 
     describe("GeoJSON { features: [...] } payload", () => {
-        /**
-         * DESIRED behavior: BaseIncidentPlugin.mapWebsocketPayload should normalise a
-         * GeoJSON FeatureCollection envelope into a GeoEntity[].
-         *
-         * CURRENT state: no mapWebsocketPayload → silent drop (null).
-         *
-         * Marked it.fails for the same reason as the scheduler-wrapped test.
-         */
-        it.fails(
-            "normalises a GeoJSON FeatureCollection into GeoEntity[] " +
-            "(CURRENTLY FAILS — BaseIncidentPlugin has no mapWebsocketPayload)",
+        it(
+            "normalises a GeoJSON FeatureCollection into GeoEntity[]",
             () => {
                 const plugin = new MinimalIncidentPlugin();
 
@@ -260,26 +214,6 @@ describe("BaseIncidentPlugin — WebSocket payload contract", () => {
             }
         );
 
-        it(
-            "currently drops a GeoJSON FeatureCollection silently because mapWebsocketPayload is absent",
-            () => {
-                const plugin = new MinimalIncidentPlugin();
-
-                const geojsonPayload = {
-                    type: "FeatureCollection",
-                    features: [
-                        {
-                            type: "Feature",
-                            geometry: { type: "Point", coordinates: [139.65, 35.68] },
-                            properties: {},
-                        },
-                    ],
-                };
-
-                const result = simulateWsClientDispatch(plugin, geojsonPayload);
-                expect(result).toBeNull();
-            }
-        );
     });
 
     describe("subclass override of mapWebsocketPayload", () => {
@@ -318,14 +252,9 @@ describe("BaseIncidentPlugin — WebSocket payload contract", () => {
     });
 
     describe("BaseIncidentPlugin structural contract", () => {
-        /**
-         * Confirm mapWebsocketPayload is NOT present on BaseIncidentPlugin today.
-         * This is the definitive proof of the bug — once the fix is added, this test
-         * should be updated (or removed) alongside the it.fails tests above.
-         */
-        it("does NOT have mapWebsocketPayload defined (confirms the bug exists)", () => {
+        it("has mapWebsocketPayload defined", () => {
             const plugin = new MinimalIncidentPlugin();
-            expect(typeof (plugin as any).mapWebsocketPayload).toBe("undefined");
+            expect(typeof (plugin as any).mapWebsocketPayload).toBe("function");
         });
 
         it("implements the required WorldPlugin lifecycle methods", () => {
