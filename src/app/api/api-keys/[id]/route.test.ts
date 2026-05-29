@@ -25,6 +25,10 @@ vi.mock("@/core/edition", () => ({
     isDemo: false,
 }));
 
+// NextAuth v5 `auth` is overloaded (middleware wrapper + no-arg session getter).
+// Narrow to the session-getter signature so vi.mocked resolves the correct overload.
+const mockAuth = vi.mocked(auth as unknown as () => Promise<Session | null>);
+
 // ---------------------------------------------------------------------------
 // DELETE /api/api-keys/[id] — KEY-03 (revoke)
 // ---------------------------------------------------------------------------
@@ -32,7 +36,7 @@ vi.mock("@/core/edition", () => ({
 describe("DELETE /api/api-keys/[id]", () => {
     beforeEach(() => {
         vi.resetAllMocks();
-        vi.mocked(auth).mockResolvedValue({
+        mockAuth.mockResolvedValue({
             user: { id: "user-123", email: "test@example.com" },
         } as Session);
     });
@@ -61,7 +65,7 @@ describe("DELETE /api/api-keys/[id]", () => {
     });
 
     it("returns 401 when no session (KEY-03)", async () => {
-        vi.mocked(auth).mockResolvedValue(null);
+        mockAuth.mockResolvedValue(null);
 
         const req = new Request("http://localhost/api/api-keys/key-id-1");
         const res = await DELETE(req, { params: { id: "key-id-1" } });

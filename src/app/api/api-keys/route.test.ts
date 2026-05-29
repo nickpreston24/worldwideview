@@ -30,6 +30,10 @@ vi.mock("@/lib/apiKeyAuth", () => ({
     generateApiKey: vi.fn(),
 }));
 
+// NextAuth v5 `auth` is overloaded (middleware wrapper + no-arg session getter).
+// Narrow to the session-getter signature so vi.mocked resolves the correct overload.
+const mockAuth = vi.mocked(auth as unknown as () => Promise<Session | null>);
+
 // ---------------------------------------------------------------------------
 // GET /api/api-keys — KEY-03 (list)
 // ---------------------------------------------------------------------------
@@ -37,7 +41,7 @@ vi.mock("@/lib/apiKeyAuth", () => ({
 describe("GET /api/api-keys", () => {
     beforeEach(() => {
         vi.resetAllMocks();
-        vi.mocked(auth).mockResolvedValue({
+        mockAuth.mockResolvedValue({
             user: { id: "user-123", email: "test@example.com" },
         } as Session);
     });
@@ -58,7 +62,7 @@ describe("GET /api/api-keys", () => {
     });
 
     it("returns 401 when no session (KEY-03)", async () => {
-        vi.mocked(auth).mockResolvedValue(null);
+        mockAuth.mockResolvedValue(null);
 
         const req = new Request("http://localhost/api/api-keys");
         const res = await GET(req);
@@ -102,7 +106,7 @@ describe("GET /api/api-keys", () => {
 describe("POST /api/api-keys", () => {
     beforeEach(() => {
         vi.resetAllMocks();
-        vi.mocked(auth).mockResolvedValue({
+        mockAuth.mockResolvedValue({
             user: { id: "user-123", email: "test@example.com" },
         } as Session);
     });
@@ -150,7 +154,7 @@ describe("POST /api/api-keys", () => {
     });
 
     it("returns 401 when no session (KEY-03)", async () => {
-        vi.mocked(auth).mockResolvedValue(null);
+        mockAuth.mockResolvedValue(null);
 
         const req = new Request("http://localhost/api/api-keys", {
             method: "POST",
