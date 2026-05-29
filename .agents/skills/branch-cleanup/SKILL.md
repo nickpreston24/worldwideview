@@ -1,6 +1,6 @@
 ---
 name: branch-cleanup
-description: Post-merge lifecycle cleanup — investigates the full state first, presents one decision summary, then executes after user approval. Commits leftover artifacts, deletes the session plan file, and delegates worktree removal to the worktree-manager agent. Pairs with branch-finisher as the closing bookend of a feature branch.
+description: Post-merge lifecycle cleanup. Investigates the full state first, presents one decision summary, then executes after user approval. Commits leftover artifacts, deletes the session plan file, archives the worktree's isolated .planning, and delegates worktree removal to the worktree-manager agent. Pairs with branch-finisher as the closing bookend of a feature branch.
 ---
 
 # Branch Cleanup
@@ -40,7 +40,7 @@ For each untracked item, classify it:
 
 | Item | Classification |
 |---|---|
-| `.planning/` | **Junction** - always skip. In worktrees, `.planning/` is a Windows junction to the shared `C:\dev\wwv\.planning` ecosystem directory. It is NOT files owned by this branch. `git-wt remove` unlinks it safely via the `unlink_planning` hook. Never commit, never `git clean` it. |
+| `.planning/` | **Real isolated dir** - archive before removal. Each worktree now owns a real, isolated `.planning` (phases + `STATE.md` private to this branch). Before tearing the worktree down, archive it to the shared archive so the phase history survives (Phase 3e). It is gitignored, so never commit it to the feature branch and never `git clean` it. |
 | `local-scripts/` | Scratch scripts - likely discard |
 | Any other untracked path | Unknown - needs user decision |
 
@@ -64,7 +64,7 @@ Branch: <branch-name>
 PRs merged: #<n> — <title>, #<n> — <title>
 
 Untracked artifacts:
-  .planning/     → junction, will be removed by git-wt (skip)
+  .planning/     → real isolated dir; archive to shared archive before removal
   <other-path>   → [commit as docs: / discard]  ← your choice
 
 Modified tracked files:
@@ -77,7 +77,7 @@ Plan files to delete:
 After your approval:
   1. Commit / discard artifacts as decided above
   2. Delete selected plan files
-  3. Remove worktree via worktree-manager (destroys Docker volume — irreversible)
+  3. Archive .planning, then remove worktree via worktree-manager (destroys Docker volume, irreversible)
 
 Proceed?
 ```
@@ -107,11 +107,24 @@ Never run `git clean -fd` without a specific path.
 Remove-Item "$env:USERPROFILE\.claude\plans\<plan-file>.md"
 ```
 
-**3e. Remove the worktree**
+**3e. Archive this worktree's `.planning`**
+
+The worktree's `.planning` is a real, isolated directory. Preserve its phase history before removal:
+
+```powershell
+$src = "C:\dev\wwv\worldwideview.<branch>\.planning"
+$dst = "C:\dev\wwv\.planning\archive\<branch>"
+New-Item -ItemType Directory -Force -Path $dst | Out-Null
+Copy-Item "$src\*" $dst -Recurse -Force
+```
+
+Skip if `.planning` has no phases worth keeping (fresh `milestone: none` state). The shared archive lives at `C:\dev\wwv\.planning\archive\`.
+
+**3f. Remove the worktree**
 Delegate to the `worktree-manager` agent:
 > "Remove the worktree for branch `<branch-name>`."
 
-The agent runs `git-wt remove --force --yes <branch>` from the main repo, tears down Docker volumes, unlinks `.planning`, and verifies cleanup.
+The agent runs `git-wt remove --force --yes <branch>` from the main repo, tears down Docker volumes, and verifies cleanup. (The worktree's real `.planning` is removed along with the worktree directory, which is why Phase 3e archives it first.)
 
 **Do not run `git-wt remove` directly** - use the agent so verification and troubleshooting are handled correctly.
 
@@ -138,4 +151,4 @@ Report:
 | Investigate | PR status, git status, plan files | Parallel - no actions yet |
 | Decide | One summary block | Wait for user approval |
 | Execute | Commit, delete plans, remove worktree | In order, after approval |
-| `.planning/` | Always skip | It is a junction, not branch files |
+| `.planning/` | Archive then remove | Real isolated dir; preserve phase history first |
