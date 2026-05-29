@@ -30,6 +30,7 @@ import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { isDemo } from "@/core/edition";
 import { authenticateApiKey } from "@/lib/apiKeyAuth";
 import { createMcpServer } from "@/lib/mcp/server";
+import { mcpLimiter, getClientIp } from "@/lib/rateLimiters";
 
 // ---------------------------------------------------------------------------
 // JSON-RPC 2.0 error response helpers
@@ -95,6 +96,13 @@ function withStreamingHeaders(sdkResponse: Response): Response {
 
 async function handleMcpRequest(request: Request): Promise<Response> {
     // ------------------------------------------------------------------
+    // Gate 0: Rate limit (H1) — runs BEFORE edition check and auth so
+    // scanners never reach the DB layer.
+    // ------------------------------------------------------------------
+    const ipLimitResult = mcpLimiter.check(getClientIp(request));
+    if (ipLimitResult) return ipLimitResult;
+
+    // ------------------------------------------------------------------
     // Gate 1: Edition check (D-17-05, MCP-04)
     // Must run BEFORE authenticateApiKey so demo edition never reaches
     // the auth/DB layer (avoids demo-admin FK write — Pitfall 5).
@@ -109,7 +117,7 @@ async function handleMcpRequest(request: Request): Promise<Response> {
     // ------------------------------------------------------------------
     const authResult = await authenticateApiKey(request);
     if (!authResult) {
-        console.error("[mcp] unauthorized request");
+        console.warn("[mcp] unauthorized request");
         return unauthorizedResponse();
     }
 

@@ -3,15 +3,22 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isDemo } from "@/core/edition";
 import { generateApiKey } from "@/lib/apiKeyAuth";
+import { apiKeyManagementLimiter, getClientIp } from "@/lib/rateLimiters";
+
+const MAX_KEYS = 3;
+const MAX_NAME_LENGTH = 64;
 
 // ---------------------------------------------------------------------------
 // GET /api/api-keys — KEY-03 (list user's keys, secrets never returned)
 // ---------------------------------------------------------------------------
 
-export async function GET(_request: Request) {
+export async function GET(request: Request) {
     if (isDemo) {
         return NextResponse.json({ error: "Not available in demo edition" }, { status: 403 });
     }
+
+    const limited = apiKeyManagementLimiter.check(getClientIp(request));
+    if (limited) return limited;
 
     const session = await auth();
     if (!session?.user?.id) {
@@ -48,34 +55,60 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Not available in demo edition" }, { status: 403 });
     }
 
+    const limited = apiKeyManagementLimiter.check(getClientIp(request));
+    if (limited) return limited;
+
     const session = await auth();
     if (!session?.user?.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    try {
-        const count = await prisma.userApiKey.count({
-            where: { userId: session.user.id },
-        });
+    const body = await request.json().catch(() => ({})) as { name?: unknown };
+    const rawName = typeof body.name === "string" ? body.name.trim() : "";
 
-        if (count >= 3) {
+    // M2: reject names exceeding the server-side length limit
+    if (rawName.length > MAX_NAME_LENGTH) {
+        return NextResponse.json(
+            { error: "name_too_long", message: `Name must be ${MAX_NAME_LENGTH} characters or fewer` },
+            { status: 422 },
+        );
+    }
+
+    try {
+        const created = await createKeyInTransaction(session.user.id, rawName);
+        if (!created) {
             return NextResponse.json(
                 { error: "max_keys_reached", message: "Maximum of 3 API keys allowed per user" },
                 { status: 422 },
             );
         }
 
-        const body = await request.json().catch(() => ({})) as { name?: unknown };
-        const rawName = typeof body.name === "string" ? body.name.trim() : "";
-        const name = rawName || `API Key ${count + 1}`;
-
-        const created = await createKeyWithRetry(session.user.id, name);
-
         return NextResponse.json({ key: created }, { status: 201 });
     } catch (err) {
         console.error("[api-keys] POST error:", err);
         return NextResponse.json({ error: "Failed to create API key" }, { status: 500 });
     }
+}
+
+// ---------------------------------------------------------------------------
+// Internal helper — M1: wraps count + create in a Serializable transaction
+// so concurrent POSTs cannot exceed the key limit (TOCTOU prevention).
+// Returns null when the max is already reached.
+// ---------------------------------------------------------------------------
+
+async function createKeyInTransaction(
+    userId: string,
+    rawName: string,
+): Promise<{ id: string; name: string; createdAt: Date; fullToken: string } | null> {
+    // $transaction with isolationLevel Serializable prevents concurrent
+    // inserts from both reading count < 3 and both succeeding (TOCTOU fix).
+    return prisma.$transaction(async (tx) => {
+        const count = await tx.userApiKey.count({ where: { userId } });
+        if (count >= MAX_KEYS) return null;
+
+        const name = rawName || `API Key ${count + 1}`;
+        return createKeyWithRetry(userId, name, tx);
+    }, { isolationLevel: "Serializable" });
 }
 
 // ---------------------------------------------------------------------------
@@ -87,11 +120,12 @@ export async function POST(request: Request) {
 async function createKeyWithRetry(
     userId: string,
     name: string,
+    tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
 ): Promise<{ id: string; name: string; createdAt: Date; fullToken: string }> {
-    const { prefix, hashedSecret, fullToken } = await generateApiKey();
+    const { prefix, hashedSecret, fullToken } = generateApiKey();
 
     try {
-        const row = await prisma.userApiKey.create({
+        const row = await tx.userApiKey.create({
             data: { userId, prefix, hashedSecret, name },
             select: { id: true, name: true, createdAt: true },
         });
@@ -106,8 +140,8 @@ async function createKeyWithRetry(
 
         if (!isPrismaP2002) throw err;
 
-        const retry = await generateApiKey();
-        const row = await prisma.userApiKey.create({
+        const retry = generateApiKey();
+        const row = await tx.userApiKey.create({
             data: { userId, prefix: retry.prefix, hashedSecret: retry.hashedSecret, name },
             select: { id: true, name: true, createdAt: true },
         });

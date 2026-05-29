@@ -19,6 +19,8 @@ vi.mock("@/lib/db", () => ({
             create: vi.fn(),
             deleteMany: vi.fn(),
         },
+        // $transaction executes the callback inline so tests don't need a real DB
+        $transaction: vi.fn(),
     },
 }));
 
@@ -30,9 +32,25 @@ vi.mock("@/lib/apiKeyAuth", () => ({
     generateApiKey: vi.fn(),
 }));
 
+// Bypass rate limiting in all route tests — the limiter module has its own tests
+vi.mock("@/lib/rateLimiters", () => ({
+    apiKeyManagementLimiter: { check: vi.fn().mockReturnValue(null) },
+    mcpLimiter: { check: vi.fn().mockReturnValue(null) },
+    getClientIp: vi.fn().mockReturnValue("127.0.0.1"),
+}));
+
 // NextAuth v5 `auth` is overloaded (middleware wrapper + no-arg session getter).
 // Narrow to the session-getter signature so vi.mocked resolves the correct overload.
 const mockAuth = vi.mocked(auth as unknown as () => Promise<Session | null>);
+
+// Helper: make $transaction execute its callback synchronously with the mock prisma.
+// Must be called in beforeEach after vi.resetAllMocks() clears the module-level mock.
+// Cast to never to bypass Prisma's complex overloaded $transaction signature.
+function wireTransaction(): void {
+    vi.mocked(prisma.$transaction).mockImplementation(
+        ((fn: (tx: typeof prisma) => unknown) => fn(prisma)) as never,
+    );
+}
 
 // ---------------------------------------------------------------------------
 // GET /api/api-keys — KEY-03 (list)
@@ -41,6 +59,7 @@ const mockAuth = vi.mocked(auth as unknown as () => Promise<Session | null>);
 describe("GET /api/api-keys", () => {
     beforeEach(() => {
         vi.resetAllMocks();
+        wireTransaction();
         mockAuth.mockResolvedValue({
             user: { id: "user-123", email: "test@example.com" },
         } as Session);
@@ -109,6 +128,7 @@ describe("GET /api/api-keys", () => {
 describe("POST /api/api-keys", () => {
     beforeEach(() => {
         vi.resetAllMocks();
+        wireTransaction();
         mockAuth.mockResolvedValue({
             user: { id: "user-123", email: "test@example.com" },
         } as Session);
@@ -131,10 +151,10 @@ describe("POST /api/api-keys", () => {
 
     it("calls generateApiKey and returns 201 with fullToken when under limit (KEY-01, KEY-04)", async () => {
         vi.mocked(prisma.userApiKey.count).mockResolvedValue(0 as never);
-        vi.mocked(generateApiKey).mockResolvedValue({
+        vi.mocked(generateApiKey).mockReturnValue({
             prefix: "wwv_TESTPFX1",
             secret: "testsecret_43chars_base64url_value_here123",
-            hashedSecret: "$2a$12$somehash",
+            hashedSecret: "a".repeat(64),
             fullToken: "wwv_TESTPFX1.testsecret_43chars_base64url_value_here123",
         });
         vi.mocked(prisma.userApiKey.create).mockResolvedValue({
@@ -166,5 +186,41 @@ describe("POST /api/api-keys", () => {
         const res = await POST(req);
 
         expect(res.status).toBe(401);
+    });
+
+    it("returns 422 with error 'name_too_long' when name exceeds 64 chars (M2)", async () => {
+        const req = new Request("http://localhost/api/api-keys", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: "a".repeat(65) }),
+        });
+        const res = await POST(req);
+        const body = await res.json();
+
+        expect(res.status).toBe(422);
+        expect(body.error).toBe("name_too_long");
+    });
+
+    it("accepts name exactly at the 64-char boundary (M2)", async () => {
+        vi.mocked(prisma.userApiKey.count).mockResolvedValue(0 as never);
+        vi.mocked(generateApiKey).mockReturnValue({
+            prefix: "wwv_TESTPFX2",
+            secret: "testsecret_43chars_base64url_value_here123",
+            hashedSecret: "b".repeat(64),
+            fullToken: "wwv_TESTPFX2.testsecret_43chars_base64url_value_here123",
+        });
+        vi.mocked(prisma.userApiKey.create).mockResolvedValue({
+            id: "new-key-id-2",
+            name: "a".repeat(64),
+            createdAt: new Date("2026-01-01"),
+        } as never);
+
+        const req = new Request("http://localhost/api/api-keys", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: "a".repeat(64) }),
+        });
+        const res = await POST(req);
+        expect(res.status).toBe(201);
     });
 });

@@ -2,18 +2,22 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isDemo } from "@/core/edition";
+import { apiKeyManagementLimiter, getClientIp } from "@/lib/rateLimiters";
 
 // ---------------------------------------------------------------------------
 // DELETE /api/api-keys/[id] — KEY-03 (ownership-scoped revoke, hard delete)
 // ---------------------------------------------------------------------------
 
 export async function DELETE(
-    _request: Request,
+    request: Request,
     { params }: { params: { id: string } },
 ) {
     if (isDemo) {
         return NextResponse.json({ error: "Not available in demo edition" }, { status: 403 });
     }
+
+    const limited = apiKeyManagementLimiter.check(getClientIp(request));
+    if (limited) return limited;
 
     const session = await auth();
     if (!session?.user?.id) {

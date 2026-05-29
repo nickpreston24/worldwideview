@@ -1,4 +1,6 @@
-import { RateLimiter } from "./rateLimit";
+import { RateLimiter, getClientIp } from "./rateLimit";
+
+export { getClientIp };
 
 /**
  * Pre-configured rate limiters for sensitive API endpoints.
@@ -37,6 +39,22 @@ export const marketplaceApiLimiter = new RateLimiter({
 
 /** /api/auth/[...nextauth] — prevents credential brute-force. */
 export const authLimiter = new RateLimiter({
+    windowMs: 60_000,
+    maxRequests: 10,
+});
+
+// TODO: move mcpLimiter and apiKeyManagementLimiter to @upstash/ratelimit for
+// multi-replica deployments — in-process limiters are per-replica and do not
+// share state across horizontal scale-out.
+
+/** /api/mcp — prevents scan/DoS before the expensive auth layer runs. */
+export const mcpLimiter = new RateLimiter({
+    windowMs: 60_000,
+    maxRequests: 60,
+});
+
+/** /api/api-keys GET/POST/DELETE — prevents enumeration and creation spam. */
+export const apiKeyManagementLimiter = new RateLimiter({
     windowMs: 60_000,
     maxRequests: 10,
 });
