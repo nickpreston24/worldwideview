@@ -1,35 +1,50 @@
-import { randomBytes } from "crypto";
-import { hash, compare } from "bcryptjs";
+import { randomBytes, createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
 
 // ---------------------------------------------------------------------------
-// Constants
+// Signing key for HMAC-SHA256 hashing of API key secrets.
+// API_KEY_HMAC_SECRET is the preferred dedicated variable.
+// Falls back to AUTH_SECRET so local dev works without adding a new .env entry.
 // ---------------------------------------------------------------------------
 
-const BCRYPT_COST = 12;
+function getSigningKey(): string {
+    const key = process.env.API_KEY_HMAC_SECRET ?? process.env.AUTH_SECRET;
+    if (!key) throw new Error("API_KEY_HMAC_SECRET (or AUTH_SECRET) must be set");
+    return key;
+}
 
-/**
- * Pre-baked cost-12 bcrypt hash of "__wwv_dummy_timing_sentinel__".
- * Used as the fallback hash on prefix-miss to ensure a real bcrypt compare
- * always runs, defeating timing-oracle attacks (T-16-01).
- *
- * The literal eliminates the cold-start gap: if the async refresh below
- * has not resolved yet, this literal is already a valid cost-12 hash.
- * Generated via: node -e "import('bcryptjs').then(b=>b.hash('__wwv_dummy_timing_sentinel__',12).then(h=>console.log(h)))"
- */
-let DUMMY_HASH = "$2b$12$k7QzlrAVpeJbV21EIU0zjOwqzh38Xyjs2oJLpBzkjPVyH7Puf.qEm";
-
-// Refresh async at module load (harmless if this races with the literal)
-hash("__wwv_dummy_timing_sentinel__", BCRYPT_COST).then((h) => {
-    DUMMY_HASH = h;
-});
+function hmacHex(secret: string): string {
+    return createHmac("sha256", getSigningKey()).update(secret).digest("hex");
+}
 
 // ---------------------------------------------------------------------------
-// lastUsedAt throttle: at most one DB write per key per 60 seconds
+// lastUsedAt throttle: at most one DB write per key per 60 seconds.
+// TTL-evict entries after 2x the window so this Map cannot grow unbounded.
+// Note: per-replica — at scale, move eviction to Redis.
 // ---------------------------------------------------------------------------
 
 const lastUsedAtThrottle = new Map<string, number>();
 const LAST_USED_THROTTLE_MS = 60_000;
+const THROTTLE_TTL_MS = LAST_USED_THROTTLE_MS * 2;
+
+function recordLastUsed(id: string): void {
+    const now = Date.now();
+    const lastWrite = lastUsedAtThrottle.get(id) ?? 0;
+
+    if (now - lastWrite <= LAST_USED_THROTTLE_MS) return;
+
+    lastUsedAtThrottle.set(id, now);
+
+    // Evict entries older than TTL to prevent unbounded growth
+    for (const [key, ts] of lastUsedAtThrottle) {
+        if (now - ts > THROTTLE_TTL_MS) lastUsedAtThrottle.delete(key);
+    }
+
+    void prisma.userApiKey.update({
+        where: { id },
+        data: { lastUsedAt: new Date() },
+    }).catch(() => { /* intentional — never block the request */ });
+}
 
 // ---------------------------------------------------------------------------
 // Interfaces (exported for consumers — API-01)
@@ -40,7 +55,7 @@ export interface GeneratedKey {
     prefix: string;
     /** 32-byte base64url — shown to user ONCE, never stored */
     secret: string;
-    /** bcrypt(secret, 12) — stored in DB */
+    /** HMAC-SHA256(signingKey, secret) hex — stored in DB */
     hashedSecret: string;
     /** "wwv_KpKF4LhL.3EqV...1k0" — the full bearer token, shown once */
     fullToken: string;
@@ -59,15 +74,15 @@ export interface AuthenticatedKey {
  * Generates a new API key pair.
  * - prefix: "wwv_" + 8 url-safe chars (stored plaintext; used as DB lookup key)
  * - secret: 43 url-safe chars from 32 random bytes (returned ONCE, never stored)
- * - hashedSecret: bcrypt(secret, 12) — what gets persisted
+ * - hashedSecret: HMAC-SHA256(signingKey, secret) hex — what gets persisted
  * - fullToken: combined bearer value shown to the user exactly once
  */
-export async function generateApiKey(): Promise<GeneratedKey> {
+export function generateApiKey(): GeneratedKey {
     // randomBytes(6) -> 8 base64url chars (no padding)
     const prefix = "wwv_" + randomBytes(6).toString("base64url");
     // randomBytes(32) -> 43 base64url chars
     const secret = randomBytes(32).toString("base64url");
-    const hashedSecret = await hash(secret, BCRYPT_COST);
+    const hashedSecret = hmacHex(secret);
     return {
         prefix,
         secret,
@@ -84,10 +99,9 @@ export async function generateApiKey(): Promise<GeneratedKey> {
  * Resolves an "Authorization: Bearer wwv_<prefix>.<secret>" header to the
  * owning user. Returns null (never throws) on any failure path.
  *
- * Timing-oracle defense (T-16-01): a bcrypt compare always executes even
- * when the prefix is not found in the DB, using the pre-baked DUMMY_HASH.
- * This ensures the miss path and the wrong-secret path are indistinguishable
- * by latency.
+ * Timing-oracle defense (T-16-01): timingSafeEqual always executes even
+ * when the prefix is not found in the DB, using a dummy digest so the miss
+ * path and the wrong-secret path are indistinguishable by latency.
  */
 export async function authenticateApiKey(
     request: Request,
@@ -107,22 +121,16 @@ export async function authenticateApiKey(
         select: { id: true, userId: true, hashedSecret: true },
     });
 
-    // Always run a compare — on miss use DUMMY_HASH to defeat timing oracle
-    const hashToCompare = row?.hashedSecret ?? DUMMY_HASH;
-    const isValid = await compare(secret, hashToCompare);
+    // Compute HMAC of the supplied secret, then compare with timingSafeEqual.
+    // On a prefix miss we compare against a dummy digest — constant-work on
+    // both paths defeats timing-oracle attacks (T-16-01).
+    const supplied = Buffer.from(hmacHex(secret), "hex");
+    const stored = Buffer.from(row?.hashedSecret ?? hmacHex("__wwv_dummy__"), "hex");
+    const isValid = timingSafeEqual(supplied, stored);
 
     if (!row || !isValid) return null;
 
-    // Fire-and-forget lastUsedAt — throttled to 1 write/min per key (T-16-05)
-    const now = Date.now();
-    const lastWrite = lastUsedAtThrottle.get(row.id) ?? 0;
-    if (now - lastWrite > LAST_USED_THROTTLE_MS) {
-        lastUsedAtThrottle.set(row.id, now);
-        void prisma.userApiKey.update({
-            where: { id: row.id },
-            data: { lastUsedAt: new Date() },
-        }).catch(() => { /* intentional — never block the request */ });
-    }
+    recordLastUsed(row.id);
 
     return { userId: row.userId, keyId: row.id };
 }
