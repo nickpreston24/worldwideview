@@ -74,6 +74,24 @@ function dispatchCommand(cmd: GlobeCommand): void {
             }
             break;
         }
+
+        case "setFilter": {
+            const state = useStore.getState();
+            for (const [filterId, value] of Object.entries(cmd.filters)) {
+                state.setFilter(cmd.pluginId, filterId, value);
+            }
+            break;
+        }
+
+        case "clearFilter": {
+            const state = useStore.getState();
+            if (cmd.pluginId !== undefined) {
+                state.clearFilters(cmd.pluginId);
+            } else {
+                state.clearAllFilters();
+            }
+            break;
+        }
     }
 }
 

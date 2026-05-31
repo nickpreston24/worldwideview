@@ -15,6 +15,7 @@
  */
 
 import { redis } from "@/lib/redis";
+import type { FilterDefinition } from "@/core/plugins/PluginTypes";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -43,6 +44,12 @@ export interface CatalogTool {
 export interface SessionCatalog {
     tools: CatalogTool[];
     capabilities: string[];
+    /**
+     * Optional per-plugin filter definitions, keyed by pluginId. Browser-published
+     * only (Phase 23, D-05); the server stays plugin-agnostic. Optional so old
+     * catalogs without it still parse.
+     */
+    filterDefinitions?: Record<string, FilterDefinition[]>;
 }
 
 // ---------------------------------------------------------------------------
