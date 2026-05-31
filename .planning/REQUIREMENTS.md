@@ -26,7 +26,7 @@ Tool descriptions must include: (1) purpose verb+object front-loaded, (2) when-t
 
 ### RESP -- Smart Response Contracts
 
-- [ ] **RESP-01**: All query tools (`search_entities`, `get_entities_in_region`, `get_entity_details`, `get_plugin_data`) include an `emptyReason` field when results are empty: `"plugin_not_streaming"` | `"no_data_matches"` | `"no_session_active"`
+- [x] **RESP-01**: All query tools (`search_entities`, `get_entities_in_region`, `get_entity_details`, `get_plugin_data`) include an `emptyReason` field when results are empty: `"plugin_not_streaming"` | `"no_data_matches"` | `"no_session_active"`
 - [ ] **RESP-02**: `get_plugin_filters` returns `{ available: false, reason: "plugin not loaded" }` (not an empty array) when the requested plugin is not active in the engine
 
 ### TOOL -- New Compound & Discovery Tools
@@ -77,7 +77,7 @@ Tool descriptions must include: (1) purpose verb+object front-loaded, (2) when-t
 | DESC-01 | Phase 27 | Complete |
 | DESC-02 | Phase 27 | Complete |
 | DESC-03 | Phase 27 | Complete |
-| RESP-01 | Phase 28 | Pending |
+| RESP-01 | Phase 28 | Complete |
 | RESP-02 | Phase 28 | Pending |
 | CRUD-01 | Phase 28 | Pending |
 | TOOL-01 | Phase 29 | Pending |

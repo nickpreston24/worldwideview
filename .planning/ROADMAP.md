@@ -125,7 +125,10 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
   2. Calling `search_entities` when no globe session is active returns `emptyReason: "no_session_active"` -- the agent can distinguish this from a data absence without guessing
   3. Calling `get_plugin_filters("flights")` when the flights plugin is not loaded returns `{ available: false, reason: "plugin not loaded" }` rather than an empty array, allowing the agent to report the real cause to the user
   4. Calling `update_favorite(id, { name: "New Name", notes: "Updated note" })` persists the change and is reflected in the next `list_favorites` response without requiring `remove_favorite` + `save_favorite`
-**Plans**: TBD
+**Plans**: 3 plans
+- [x] 28-01-PLAN.md — RESP-01: emptyReason discriminated service results + userId threading into registerDataQueryTools + 4-tool passthrough with session-first precedence + tests (wave 1)
+- [ ] 28-02-PLAN.md — RESP-02: get_plugin_filters availability wrapper (4 shapes) + Phase 27 description/test updates (wave 2, depends on 28-01 for route.ts seam)
+- [ ] 28-03-PLAN.md — CRUD-01: [BLOCKING] notes String? migration + update_favorite tool + list_favorites notes surfacing + tests (wave 1, independent files)
 
 ### Phase 29: Compound and Discovery Tools
 **Goal**: Agents can answer "what is happening near X?" in a single tool call, check which plugins are active before querying, and orient themselves completely without reading multiple resources
@@ -149,7 +152,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 25. Documentation | 1/1 | Complete | 2026-05-31 |
 | 26. Server Instructions + Orientation | 1/1 | Complete   | 2026-05-31 |
 | 27. Tool Description Rewrite | 3/3 | Complete   | 2026-05-31 |
-| 28. Smart Response Contracts + Favorites CRUD | 0/? | Not started | - |
+| 28. Smart Response Contracts + Favorites CRUD | 1/3 | In Progress|  |
 | 29. Compound and Discovery Tools | 0/? | Not started | - |
 
 ## Backlog
