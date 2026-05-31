@@ -24,6 +24,7 @@ import { pluginManager } from "@/core/plugins/PluginManager";
 import { getNamespacedTools } from "@/lib/mcp/pluginTools";
 import type { PluginToolsEntry } from "@/lib/mcp/pluginTools";
 import type { CatalogTool } from "@/lib/mcpSessionCatalog";
+import type { FilterDefinition } from "@/core/plugins/PluginTypes";
 
 /** Re-publish interval in ms -- mirrors the 19a session-heartbeat cadence. */
 const PUBLISH_INTERVAL_MS = 30_000;
@@ -36,13 +37,20 @@ interface CatalogPayload {
     sessionId?: string;
     tools: CatalogTool[];
     capabilities: string[];
+    filterDefinitions?: Record<string, FilterDefinition[]>;
 }
 
 /**
- * Collects mcpTools and mcpCapabilities from all loaded manifests.
- * Only includes plugins whose manifests declare at least one mcpTool.
+ * Collects mcpTools, mcpCapabilities, and declared filterDefinitions from all
+ * loaded plugins. Only includes plugins whose manifests declare at least one
+ * mcpTool (tools); filterDefinitions includes only plugins that returned a
+ * non-empty array from getFilterDefinitions() (D-05).
  */
-function collectCatalog(): { tools: CatalogTool[]; capabilities: string[] } {
+function collectCatalog(): {
+    tools: CatalogTool[];
+    capabilities: string[];
+    filterDefinitions: Record<string, FilterDefinition[]>;
+} {
     const allPlugins = pluginManager.getAllPlugins();
 
     const entries: PluginToolsEntry[] = allPlugins.flatMap((managed) => {
@@ -74,7 +82,17 @@ function collectCatalog(): { tools: CatalogTool[]; capabilities: string[] } {
         };
     });
 
-    return { tools, capabilities: Array.from(capabilitySet) };
+    // Collect declared filterable fields from each loaded plugin instance.
+    // Only include plugins that returned a non-empty definitions array (D-05).
+    const filterDefinitions: Record<string, FilterDefinition[]> = {};
+    for (const managed of allPlugins) {
+        const defs = managed.plugin.getFilterDefinitions?.();
+        if (defs && defs.length > 0) {
+            filterDefinitions[managed.plugin.id] = defs;
+        }
+    }
+
+    return { tools, capabilities: Array.from(capabilitySet), filterDefinitions };
 }
 
 // ---------------------------------------------------------------------------
@@ -85,14 +103,20 @@ async function publishCatalog(
     sessionId: string,
     active: { current: boolean },
 ): Promise<void> {
-    const { tools, capabilities } = collectCatalog();
+    const { tools, capabilities, filterDefinitions } = collectCatalog();
 
-    // No-op when no plugin-declared MCP tools are present
-    if (tools.length === 0) return;
+    // No-op only when nothing is publishable: no MCP tools AND no declared
+    // filters. A filter-only plugin still publishes so get_plugin_filters works.
+    if (tools.length === 0 && Object.keys(filterDefinitions).length === 0) return;
 
     if (!active.current) return;
 
-    const payload: CatalogPayload = { sessionId, tools, capabilities };
+    const payload: CatalogPayload = {
+        sessionId,
+        tools,
+        capabilities,
+        ...(Object.keys(filterDefinitions).length > 0 && { filterDefinitions }),
+    };
 
     try {
         const res = await fetch("/api/mcp/catalog", {

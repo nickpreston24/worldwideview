@@ -142,9 +142,29 @@ export async function POST(request: Request): Promise<NextResponse> {
         }
     }
 
+    // Optional filterDefinitions: a plain object map (pluginId -> defs[]).
+    // Identity is never taken from the body; only this structural shape is
+    // accepted. Reject non-object / array shapes; absent is fine.
+    let filterDefinitions: SessionCatalog["filterDefinitions"] | undefined;
+    const rawFilterDefs = body.filterDefinitions;
+    if (rawFilterDefs !== undefined) {
+        if (
+            !rawFilterDefs ||
+            typeof rawFilterDefs !== "object" ||
+            Array.isArray(rawFilterDefs)
+        ) {
+            return NextResponse.json(
+                { error: "body.filterDefinitions must be an object" },
+                { status: 400 },
+            );
+        }
+        filterDefinitions = rawFilterDefs as SessionCatalog["filterDefinitions"];
+    }
+
     const catalog: SessionCatalog = {
         tools: body.tools as SessionCatalog["tools"],
         capabilities: body.capabilities as string[],
+        ...(filterDefinitions !== undefined && { filterDefinitions }),
     };
 
     // Gate 6: Store -- userId ONLY from auth result (NEVER from body)
