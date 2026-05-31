@@ -66,7 +66,7 @@ export function createSvgIconUrl(
 }
 
 // ─── Re-export manifest types ─────────────────────────────────
-export type { PluginManifest, PluginFormat, PluginType, TrustTier, PluginCapability, DataSourceConfig, FieldMapping, RenderingConfig } from "./manifest";
+export type { PluginManifest, PluginFormat, PluginType, TrustTier, PluginCapability, DataSourceConfig, FieldMapping, RenderingConfig, McpToolDeclaration } from "./manifest";
 
 // ─── Categories ──────────────────────────────────────────────
 export type PluginCategory =
@@ -286,6 +286,17 @@ export interface WorldPlugin {
     requiresConfiguration?(settings: unknown): boolean;
     /** Map raw websocket payload into GeoEntity array. Optional existingEntities is provided so plugins can merge state (e.g. historical trails). */
     mapWebsocketPayload?(payload: any, existingEntities?: GeoEntity[]): GeoEntity[];
+    /**
+     * Execute an MCP tool in the browser on behalf of the server relay.
+     * The server dispatches the invocation here; the plugin runs the logic
+     * and returns the result. The server NEVER executes plugin tools directly
+     * (v3 frontend-relay design).
+     *
+     * @param toolName - The bare tool name (not namespaced).
+     * @param args - Validated arguments from the MCP client.
+     * @returns Arbitrary result serializable to JSON.
+     */
+    executeMcpTool?(toolName: string, args: Record<string, unknown>): Promise<unknown>;
 }
 
 // ─── Aliases for backwards compatibility ─────────────────────
