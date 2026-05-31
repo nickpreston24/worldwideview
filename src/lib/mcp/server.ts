@@ -27,7 +27,7 @@ const SERVER_NAME = "worldwideview" as const;
 // The MCP server's own protocol-advertised version. Bump this when the
 // server's self-description or tool surface changes in a meaningful way.
 // This is NOT package.json -- do not keep them in sync automatically.
-export const MCP_SERVER_VERSION = "1.2.0" as const;
+export const MCP_SERVER_VERSION = "1.3.0" as const;
 
 export const MCP_SERVER_INSTRUCTIONS = `\
 WorldWideView MCP server. Read and control a live 3D geospatial globe for the authenticated user. Everything is scoped to your API key: you only ever see and control your own data and your own browser sessions.
