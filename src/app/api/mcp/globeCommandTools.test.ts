@@ -38,14 +38,18 @@ vi.mock("@/lib/globeCommandQueue", () => ({
 
 type ToolHandler = (input: Record<string, unknown>) => Promise<{ content: [{ type: "text"; text: string }] }>;
 
+type ToolDef = { description: string; inputSchema: Record<string, unknown> };
+
 function makeFakeServer() {
     const tools = new Map<string, ToolHandler>();
+    const schemas = new Map<string, ToolDef>();
     const server = {
-        registerTool: vi.fn((name: string, _def: unknown, handler: ToolHandler) => {
+        registerTool: vi.fn((name: string, def: ToolDef, handler: ToolHandler) => {
             tools.set(name, handler);
+            schemas.set(name, def);
         }),
     };
-    return { server, tools };
+    return { server, tools, schemas };
 }
 
 beforeEach(() => {
@@ -348,6 +352,58 @@ describe("isValidGlobeCommand coordinate bounds (TOOL-07)", () => {
 describe("isValidGlobeCommand NaN heading rejection (TOOL-08)", () => {
     it("rejects a pan command with heading: NaN", () => {
         expect(isValidGlobeCommand({ type: "pan", lat: 0, lon: 0, alt: 1000, heading: NaN })).toBe(false);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// DESC-01: command tool description standard assertions
+// ---------------------------------------------------------------------------
+
+describe("command tool descriptions (DESC-01)", () => {
+    const TOOL_NAMES = ["pan_globe", "focus_entity", "toggle_layer", "set_timeline"] as const;
+
+    function getSchemas() {
+        const { server, schemas } = makeFakeServer();
+        registerGlobeCommandTools(
+            server as unknown as import("@modelcontextprotocol/sdk/server/mcp.js").McpServer,
+            { userId: "u1" },
+        );
+        return schemas;
+    }
+
+    it.each(TOOL_NAMES)("%s description length is > 0 and <= 1024 chars", (name) => {
+        const schemas = getSchemas();
+        const desc = schemas.get(name)!.description;
+        expect(desc.length).toBeGreaterThan(0);
+        expect(desc.length).toBeLessThanOrEqual(1024);
+    });
+
+    it.each(TOOL_NAMES)("%s description includes globe://sessions", (name) => {
+        const schemas = getSchemas();
+        expect(schemas.get(name)!.description).toContain("globe://sessions");
+    });
+
+    it.each(TOOL_NAMES)('%s description includes "no active globe session to control"', (name) => {
+        const schemas = getSchemas();
+        expect(schemas.get(name)!.description).toContain("no active globe session to control");
+    });
+
+    it.each(TOOL_NAMES)('%s description includes a "Prefer " disambiguation line', (name) => {
+        const schemas = getSchemas();
+        expect(schemas.get(name)!.description).toContain("Prefer ");
+    });
+
+    it.each(TOOL_NAMES)('%s description includes an "Example:" call', (name) => {
+        const schemas = getSchemas();
+        expect(schemas.get(name)!.description).toContain("Example:");
+    });
+
+    it("set_timeline description includes at least one timeWindow enum literal", () => {
+        const schemas = getSchemas();
+        const desc = schemas.get("set_timeline")!.description;
+        const timeWindowValues = ["1h", "6h", "24h", "48h", "7d"];
+        const found = timeWindowValues.some((v) => desc.includes(v));
+        expect(found).toBe(true);
     });
 });
 
