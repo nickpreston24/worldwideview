@@ -79,7 +79,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 22. Geocoding + Favorites | 0/? | Not started | - |
+| 22. Geocoding + Favorites | 1/4 | In Progress|  |
 | 23. Entity Filtering | 0/? | Not started | - |
 | 24. Route Wiring + Version Bump | 0/? | Not started | - |
 | 25. Documentation | 0/? | Not started | - |

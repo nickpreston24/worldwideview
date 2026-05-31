@@ -8,8 +8,8 @@
 ### Geocoding
 
 - [ ] **GEO-01**: Agent can call `geocode_location(query)` and receive 2-5 ranked results with `{lat, lng, name, type, country, bbox, importance}` via Nominatim
-- [ ] **GEO-02**: Agent can call `fly_to(lat, lng, altitude?, bbox?)` to pan/zoom the globe camera; when `bbox` is provided, Cesium fits the region to the bounding box
-- [ ] **GEO-03**: Geocoding enforces a server-side 1 req/sec Redis sliding window rate limiter and caches results for 24 hours to prevent Nominatim IP ban
+- [x] **GEO-02**: Agent can call `fly_to(lat, lng, altitude?, bbox?)` to pan/zoom the globe camera; when `bbox` is provided, Cesium fits the region to the bounding box
+- [x] **GEO-03**: Geocoding enforces a server-side 1 req/sec Redis sliding window rate limiter and caches results for 24 hours to prevent Nominatim IP ban
 
 ### Filtering
 
@@ -26,7 +26,7 @@
 
 ### Safety & Guards
 
-- [ ] **SAFE-01**: All new MCP tool registrars check `isDemo` gate before `authenticateApiKey()`, consistent with v1.2 pattern
+- [x] **SAFE-01**: All new MCP tool registrars check `isDemo` gate before `authenticateApiKey()`, consistent with v1.2 pattern
 - [ ] **SAFE-02**: MCP favorites tools call `prisma.favorite` directly and never proxy through the REST `/api/user/favorites` route (which uses NextAuth cookie auth and silently 401s on API key requests)
 
 ### Integration
@@ -68,12 +68,12 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | GEO-01 | Phase 22 | Pending |
-| GEO-02 | Phase 22 | Pending |
-| GEO-03 | Phase 22 | Pending |
+| GEO-02 | Phase 22 | Complete |
+| GEO-03 | Phase 22 | Complete |
 | FAV-01 | Phase 22 | Pending |
 | FAV-02 | Phase 22 | Pending |
 | FAV-03 | Phase 22 | Pending |
-| SAFE-01 | Phase 22 | Pending |
+| SAFE-01 | Phase 22 | Complete |
 | SAFE-02 | Phase 22 | Pending |
 | FILT-01 | Phase 23 | Pending |
 | FILT-02 | Phase 23 | Pending |

@@ -2,13 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Location Intelligence
-status: active
-last_updated: "2026-05-31T11:20:00.000Z"
+status: executing
+last_updated: "2026-05-31T00:31:29.921Z"
+last_activity: 2026-05-31
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 4
+  completed_plans: 1
   percent: 0
 ---
 
@@ -19,16 +20,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-31)
 
 **Core value:** A single globe that shows everything happening in the world right now, extensible by anyone via plugins, and controllable by any AI agent via MCP.
-**Current focus:** v1.3 Location Intelligence -- Phase 22: Geocoding + Favorites (next to plan)
+**Current focus:** Phase 22 — geocoding-favorites
 
 ## Current Position
 
-Phase: Phase 22 (not started -- awaiting plan)
-Plan: --
-Status: Roadmap defined, ready for phase planning
-Last activity: 2026-05-31 -- v1.3 ROADMAP.md created, all 14 requirements mapped
+Phase: 22 (geocoding-favorites) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-05-31
+Resume file: None
 
-Progress: [....................] 0% (0/3 phases complete)
+Progress: [███░░░░░░░] 25%
 
 ## Key Decisions (carried from v1.2)
 
