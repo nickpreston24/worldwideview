@@ -153,7 +153,7 @@ export function registerDataQueryTools(server: McpServer): void {
         "get_plugin_data",
         {
             description:
-                "Full data snapshot returning all current entities for one plugin by pluginId. Use to bulk-read a plugin's live state. Limitation: an empty result (count 0) has two distinct causes -- plugin not loaded or not streaming yet (re-call tools/list after the plugin loads), OR no entities matched (plugin loaded but empty); a future emptyReason field will distinguish these. Includes capturedAt timestamp. Example: get_plugin_data({ pluginId: 'earthquakes' })",
+                "Full data snapshot returning all current entities for one plugin by pluginId. Use to bulk-read a plugin's live state. Limitation: an empty result (count 0) has two distinct causes -- plugin not loaded or not streaming yet (re-call tools/list after the plugin loads), OR no entities matched (plugin loaded but empty); a future emptyReason field will distinguish these. Includes a capturedAt timestamp when the plugin has streamed data (absent for the not-loaded case). Example: get_plugin_data({ pluginId: 'earthquakes' })",
             inputSchema: {
                 pluginId: z.string().describe("The plugin identifier"),
             },

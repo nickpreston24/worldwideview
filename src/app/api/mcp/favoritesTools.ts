@@ -156,7 +156,7 @@ export function registerFavoritesTools(
             description:
                 "Delete a bookmarked entity from the authenticated user's favorites. " +
                 "Pair with list_favorites to find the correct entityId before removing. " +
-                "Limitations: deletes by entityId; silently succeeds if the entity was already removed. " +
+                "Limitations: deletes by exact entityId; removing an entity that is not currently a favorite returns 'remove_favorite failed' (call list_favorites first to confirm it exists). " +
                 "Parameters: entityId (string, required). " +
                 "Output: 'Removed favorite: <entityId>'. " +
                 "Example: remove_favorite({ entityId: 'AFR123' }).",
