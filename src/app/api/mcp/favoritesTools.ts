@@ -66,8 +66,11 @@ export function registerFavoritesTools(
         "save_favorite",
         {
             description:
-                "Bookmark an entity so the user can return to it later. " +
-                "Provide the entityId and the owning pluginId; name is an optional human-readable label.",
+                "Bookmark an entity so the user can return to it later (upsert by entityId). " +
+                "Inputs: entityId (string, required) -- the unique entity id; pluginId (string, required) -- the plugin that owns the entity; " +
+                "name (string, optional) -- a human-readable label, defaults to entityId. " +
+                "Output: text 'Saved favorite: <label>'. " +
+                "Example: save_favorite({ entityId: 'AFR123', pluginId: 'flights', name: 'Air France 123' }).",
             inputSchema: {
                 entityId: z.string().min(1).describe("Unique entity identifier"),
                 pluginId: z.string().min(1).describe("Plugin that owns this entity"),
@@ -109,9 +112,12 @@ export function registerFavoritesTools(
         "list_favorites",
         {
             description:
-                "List the authenticated user's bookmarked entities. Each entry includes a " +
-                "liveness status: 'live' if the entity is currently visible on an active globe " +
-                "session, otherwise 'stale'.",
+                "List the authenticated user's bookmarked entities, most recently seen first. " +
+                "Inputs: none. " +
+                "Output: a JSON array of favorites, each with { id, userId, entityId, pluginId, label, pluginName, lastSeen, status }, " +
+                "where status is 'live' if the entity currently resolves on an active globe session, otherwise 'stale'. " +
+                "With no active session ALL entries are reported 'stale'. Returns [] when there are no favorites. " +
+                "Example: list_favorites({}) -> [{ entityId: 'AFR123', pluginId: 'flights', label: 'Air France 123', status: 'live' }].",
             inputSchema: {},
         },
         async () => {
@@ -146,7 +152,11 @@ export function registerFavoritesTools(
     server.registerTool(
         "remove_favorite",
         {
-            description: "Remove a bookmarked entity from the user's favorites.",
+            description:
+                "Remove a bookmarked entity from the authenticated user's favorites. " +
+                "Inputs: entityId (string, required) -- the entity id to remove. " +
+                "Output: text 'Removed favorite: <entityId>'. " +
+                "Example: remove_favorite({ entityId: 'AFR123' }).",
             inputSchema: {
                 entityId: z.string().min(1).describe("Entity identifier to remove from favorites"),
             },

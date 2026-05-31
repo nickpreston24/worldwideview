@@ -109,8 +109,11 @@ export function registerGeocodingTools(
         "geocode_location",
         {
             description:
-                "Geocode a location name or address to coordinates and bounding box via OpenStreetMap Nominatim. " +
-                "Returns ranked results sorted by importance.",
+                "Geocode a place name or address to coordinates and a bounding box via OpenStreetMap Nominatim. " +
+                "Inputs: query (string, required) -- the place name or address; limit (integer 1-20, optional, default 5) -- max results. " +
+                "Output: a JSON array of results sorted by importance, each with { lat, lng, name, name_en, type, addresstype, country, display_name, bbox: [west, south, east, north], importance }. " +
+                "Returns the literal text 'no results found' when nothing matches. " +
+                "Example: geocode_location({ query: 'Paris', limit: 3 }) -> [{ lat: 48.85, lng: 2.35, name: 'Paris', bbox: [...], ... }].",
             inputSchema: {
                 query: z.string().min(1).describe("Location name or address to geocode"),
                 limit: z
@@ -152,8 +155,12 @@ export function registerGeocodingTools(
         "fly_to",
         {
             description:
-                "Fly the globe camera to a coordinate, optionally fitting a bounding box in view. " +
-                "Provide lat/lng (and optional altitude in metres), or a [west, south, east, north] bbox.",
+                "Fly the live globe camera to a coordinate, optionally fitting a bounding box in view. " +
+                "Inputs: lat (number -90..90, required), lng (number -180..180, required), altitude (positive number metres, optional, default 15000), " +
+                "bbox ([west, south, east, north] tuple, optional -- fit this box in view), sessionId (string, optional -- target a specific browser tab; omit for the most-recently-active tab). " +
+                "Output: text 'fly_to command enqueued (...)' on success, or 'no active globe session to control' when no tab is live. " +
+                "The camera moves over the SSE bridge with no page reload. " +
+                "Example: fly_to({ lat: 48.85, lng: 2.35 }) or fly_to({ lat: 0, lng: 0, bbox: [2.2, 48.8, 2.5, 48.9] }).",
             inputSchema: {
                 lat: latSchema.describe("Latitude [-90, 90]"),
                 lng: lonSchema.describe("Longitude [-180, 180]"),

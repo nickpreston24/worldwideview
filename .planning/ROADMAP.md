@@ -26,7 +26,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 
 - [x] **Phase 22: Geocoding + Favorites** - Geocode places, fly the globe, bookmark tracked entities (4/4 plans, verified 2026-05-31)
 - [x] **Phase 23: Entity Filtering** - Push live filters to the globe and query plugin-declared filter schemas
-- [ ] **Phase 24: Route Wiring + Version Bump** - Wire all v1.3 registrars into the MCP handler and ship MCP_SERVER_VERSION 1.3.0
+- [x] **Phase 24: Route Wiring + Version Bump** - Wire all v1.3 registrars into the MCP handler and ship MCP_SERVER_VERSION 1.3.0
 - [ ] **Phase 25: Documentation** - MCP tool docs, plugin author filter guide, user-facing capability summary, and v1.3 release notes
 
 ## Phase Details
@@ -65,7 +65,8 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
   1. MCP `tools/list` response includes all v1.3 tools: `geocode_location`, `fly_to`, `save_favorite`, `list_favorites`, `remove_favorite`, `set_filter`, `clear_filter`, `get_plugin_filters`
   2. MCP server `serverInfo.version` field returns `"1.3.0"` on every initialize handshake
   3. `search_entities` with optional `filters` param is reflected in the tool schema exposed to clients
-**Plans**: TBD
+**Plans**: 24-01 (COMPLETE) - INTG-01 verified, INTG-02 shipped (MCP_SERVER_VERSION 1.3.0)
+**Status**: COMPLETE 2026-05-31. tsc clean, 750 Vitest tests GREEN (+12), build OK. Commits 5201ae3, 5ea7855.
 
 ### Phase 25: Documentation
 **Goal**: Every v1.3 feature is fully documented for three audiences: MCP clients (tool schemas), plugin developers (filter manifest guide), and end users (capability summary)

@@ -7,10 +7,10 @@ last_updated: "2026-05-31T01:19:13.164Z"
 last_activity: 2026-05-31
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
-  percent: 50
+  completed_phases: 3
+  total_plans: 8
+  completed_plans: 8
+  percent: 75
 ---
 
 # Project State
@@ -20,17 +20,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-31)
 
 **Core value:** A single globe that shows everything happening in the world right now, extensible by anyone via plugins, and controllable by any AI agent via MCP.
-**Current focus:** Phase 23 — entity-filtering
+**Current focus:** Phase 25 — documentation
 
 ## Current Position
 
-Phase: 23 (entity-filtering) — COMPLETE
-Plan: 3 of 3 (23-01, 23-02, 23-03 all landed)
-Status: Phase 23 COMPLETE — registerFilterTools wired into POST /api/mcp; whole-project tsc clean, full Vitest suite (738 tests) GREEN, pnpm build OK. INTG version bump (1.3.0) deferred to Phase 24.
+Phase: 24 (route-wiring-version-bump) — COMPLETE
+Plan: 1 of 1 (24-01 landed)
+Status: Phase 24 COMPLETE — INTG-01 verified (all v1.3 registrars wired into POST /api/mcp); INTG-02 shipped (MCP_SERVER_VERSION 1.2.0 -> 1.3.0). Whole-project tsc clean, full Vitest suite (750 tests, +12) GREEN, pnpm build OK. Commits 5201ae3, 5ea7855.
 Last activity: 2026-05-31
 Resume file: None
 
-Progress: [█████░░░░░] 50% (2 of 4 phases complete)
+Progress: [███████░░░] 75% (3 of 4 phases complete)
 
 ## Key Decisions (carried from v1.2)
 
