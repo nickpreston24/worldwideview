@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Agentic Intelligence
 status: executing
-last_updated: "2026-06-02T04:13:42.768Z"
+last_updated: "2026-06-02T04:29:25.100Z"
 last_activity: 2026-06-02
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 22
-  completed_plans: 18
+  completed_plans: 19
   percent: 78
 ---
 
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-05-31)
 ## Current Position
 
 Phase: 30 (local-data-source-bridge-make-server-reachable-client-side-a) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-06-02
 Resume file: None
 
-Progress: [████████░░] 82%
+Progress: [█████████░] 86%
 
 ## v1.4 Phase Map
 
@@ -49,6 +49,8 @@ Progress: [████████░░] 82%
 - **Plugin tools via frontend relay:** No engine endpoint. useMcpCatalogPublisher + useMcpRelayBridge pattern.
 - **Three editions:** NEXT_PUBLIC_WWV_EDITION (local/cloud/demo). isDemo gate runs before auth on all new endpoints.
 - **Generic API keys:** wwv_prefix.secret bearer tokens. authenticateApiKey() middleware reused for all new MCP tools.
+- **LocalDataSource registry (Phase 30-02):** Scans public/plugins-local/<id>/plugin.json at startup; memoized once per process. Per-source TTL cache: TTL_GEOJSON_MS=60min, TTL_ROUTE_MS=60s. geojson sources read from disk (no self-HTTP); route sources fetched via internal base URL.
+- **LocalDataSourceDeclaration SDK export:** Added to wwv-plugin-sdk/src/index.ts re-exports (was absent from Plan 30-01 manifest.ts addition).
 
 ## v1.3 Phase Map (archived reference)
 
