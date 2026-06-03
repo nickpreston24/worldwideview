@@ -20,6 +20,9 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/core/edition", () => ({
     isDemo: false,
+    edition: "local",
+    isLocal: true,
+    isCloud: false,
 }));
 
 // AUTH_SECRET must be set so getSigningKey() does not throw in the test env

@@ -22,6 +22,7 @@ import { enqueueGlobeCommand, resolveActiveSessionId } from "@/lib/globeCommandQ
 import { readSessionCatalog } from "@/lib/mcpSessionCatalog";
 import { filterValueSchema } from "@/lib/mcp/filterSchemas";
 import type { GlobeCommand } from "@/core/globe/types/GlobeCommand";
+import { pluginIdSchema } from "@/lib/mcp/identifierSchemas";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -71,7 +72,7 @@ export function registerFilterTools(
                 "Output: 'set_filter command enqueued for <pluginId> (N filter(s))' or 'no active globe session to control'. " +
                 "Example: set_filter({ pluginId: 'flights', filters: { status: { type: 'select', values: ['airborne'] } } }).",
             inputSchema: {
-                pluginId: z.string().min(1).describe("Plugin whose layer to filter, e.g. 'flights'"),
+                pluginId: pluginIdSchema.describe("Plugin whose layer to filter, e.g. 'flights'"),
                 filters: z
                     .record(z.string(), filterValueSchema)
                     .describe("Map of filterId -> filter value. Discover valid filter ids via get_plugin_filters."),
@@ -111,7 +112,7 @@ export function registerFilterTools(
                 "Output: 'clear_filter enqueued for <pluginId>' or 'clear_filter enqueued for ALL plugins'. " +
                 "Example: clear_filter({ pluginId: 'flights' }) or clear_filter({}).",
             inputSchema: {
-                pluginId: z.string().optional().describe("Plugin whose filters to clear. Omit to clear ALL filters on the globe."),
+                pluginId: pluginIdSchema.optional().describe("Plugin whose filters to clear. Omit to clear ALL filters on the globe."),
                 sessionId: z.string().optional().describe("Target globe session id. Omit to target most-recently-active tab."),
             },
         },
@@ -149,7 +150,7 @@ export function registerFilterTools(
                 "Output: { available: true, filters: FilterDefinition[] } when the plugin is loaded, where each FilterDefinition is { id, label, type: 'text'|'select'|'range'|'boolean', propertyKey, options?, range? }; or { available: false, reason: 'plugin not loaded' | 'no_session_active' } when unavailable. " +
                 "Example: get_plugin_filters({ pluginId: 'flights' }) -> { available: true, filters: [{ id: 'status', label: 'Status', type: 'select', options: [...] }] }.",
             inputSchema: {
-                pluginId: z.string().min(1).describe("Plugin to inspect for declared filterable fields"),
+                pluginId: pluginIdSchema.describe("Plugin to inspect for declared filterable fields"),
             },
         },
         async (args) => {

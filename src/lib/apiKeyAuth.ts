@@ -1,14 +1,40 @@
 import { randomBytes, createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
+import { edition } from "@/core/edition";
 
 // ---------------------------------------------------------------------------
 // Signing key for HMAC-SHA256 hashing of API key secrets.
 // API_KEY_HMAC_SECRET is the preferred dedicated variable.
-// Falls back to AUTH_SECRET so local dev works without adding a new .env entry.
+// Falls back to AUTH_SECRET in local edition only, so dev works without a
+// separate .env entry.
+//
+// Lazy enforcement (not a bare module-level throw): Next.js evaluates module
+// code at build time and during edge prerender. A top-level throw would break
+// `next build` in environments where these env vars are not yet populated.
+// Throwing inside the function means the check fires only on the first real
+// auth call, where a missing/shared key is an actual runtime problem.
 // ---------------------------------------------------------------------------
 
 function getSigningKey(): string {
-    const key = process.env.API_KEY_HMAC_SECRET ?? process.env.AUTH_SECRET;
+    const dedicated = process.env.API_KEY_HMAC_SECRET;
+    const fallback = process.env.AUTH_SECRET;
+
+    if (edition === "cloud" || edition === "demo") {
+        if (!dedicated) {
+            throw new Error(
+                `API_KEY_HMAC_SECRET must be set and distinct from AUTH_SECRET in ${edition} edition`,
+            );
+        }
+        if (dedicated === fallback) {
+            throw new Error(
+                `API_KEY_HMAC_SECRET must be set and distinct from AUTH_SECRET in ${edition} edition`,
+            );
+        }
+        return dedicated;
+    }
+
+    // local edition: allow AUTH_SECRET fallback for convenience
+    const key = dedicated ?? fallback;
     if (!key) throw new Error("API_KEY_HMAC_SECRET (or AUTH_SECRET) must be set");
     return key;
 }

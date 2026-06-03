@@ -31,6 +31,13 @@ import { isDemo } from "@/core/edition";
 import { authenticateApiKey } from "@/lib/apiKeyAuth";
 import { createMcpServer, registerOrientationPrompts } from "@/lib/mcp/server";
 import { mcpLimiter, getClientIp } from "@/lib/rateLimiters";
+import { redisSlidingWindow } from "@/lib/geocodingRateLimit";
+import {
+    demoBlockedResponse,
+    unauthorizedResponse,
+    rateLimitedResponse,
+    internalErrorResponse,
+} from "@/lib/mcp/mcpResponseHelpers";
 import { registerGlobeResources } from "./globeResources";
 import { registerDataQueryTools } from "@/lib/mcp/tools";
 import { registerGlobeCommandTools } from "./globeCommandTools";
@@ -49,62 +56,9 @@ import { registerDiscoveryTools } from "./discoveryTools";
 
 export const maxDuration = 30;
 
-// ---------------------------------------------------------------------------
-// JSON-RPC 2.0 error response helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Returns 403 + JSON-RPC 2.0 body for the demo edition gate (MCP-04).
- * Runs BEFORE auth so the demo-admin FK write path is never reached.
- */
-function demoBlockedResponse(): Response {
-    return Response.json(
-        {
-            jsonrpc: "2.0",
-            error: { code: -32600, message: "MCP is not available in demo mode" },
-            id: null,
-        },
-        { status: 403 },
-    );
-}
-
-/**
- * Returns 401 + JSON-RPC 2.0 body for missing / invalid Bearer token (MCP-03).
- * Content-Type is application/json (not plain text — Pitfall 3).
- */
-function unauthorizedResponse(): Response {
-    return Response.json(
-        {
-            jsonrpc: "2.0",
-            error: { code: -32600, message: "Unauthorized" },
-            id: null,
-        },
-        { status: 401 },
-    );
-}
-
-/**
- * Returns 500 + JSON-RPC 2.0 body for unexpected server errors (TRANS-01).
- * Used by the top-level try/catch so MCP clients always receive a valid
- * JSON-RPC error frame instead of a bare HTML 500 from Next.js.
- */
-function internalErrorResponse(): Response {
-    return Response.json(
-        {
-            jsonrpc: "2.0",
-            id: null,
-            error: { code: -32603, message: "Internal error" },
-        },
-        {
-            status: 500,
-            headers: {
-                "X-Accel-Buffering": "no",
-                "Cache-Control": "no-cache, no-transform",
-                "Connection": "keep-alive",
-            },
-        },
-    );
-}
+// Per-key rate-limit budget (SEC-02): 120 requests per 60-second window.
+const MCP_KEY_LIMIT = 120;
+const MCP_WINDOW_MS = 60_000;
 
 // ---------------------------------------------------------------------------
 // Header merge helper
@@ -188,6 +142,18 @@ async function handleMcpRequest(request: Request): Promise<Response> {
     if (!authResult) {
         console.warn("[mcp] unauthorized request");
         return unauthorizedResponse();
+    }
+
+    // ------------------------------------------------------------------
+    // Gate 3: Redis per-key rate limit (SEC-02).
+    // 120 req / 60s per authenticated key, complementing the coarse IP
+    // gate above. Fails OPEN on Redis outage so a broken Redis never
+    // blocks legit users.
+    // ------------------------------------------------------------------
+    const keyRateKey = `mcp:ratelimit:key:${authResult.keyId}`;
+    const keyLimit = await redisSlidingWindow(keyRateKey, MCP_KEY_LIMIT, MCP_WINDOW_MS);
+    if (!keyLimit.allowed) {
+        return rateLimitedResponse(keyLimit.retryAfterMs);
     }
 
     // ------------------------------------------------------------------

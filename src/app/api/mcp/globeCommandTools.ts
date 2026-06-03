@@ -21,9 +21,10 @@ import { enqueueGlobeCommand, resolveActiveSessionId } from "@/lib/globeCommandQ
 import { TIME_WINDOW_VALUES } from "@/core/globe/types/GlobeCommand";
 import type { GlobeCommand } from "@/core/globe/types/GlobeCommand";
 import { latSchema, lonSchema, altSchema } from "@/lib/mcp/coordinateSchemas";
+import { layerIdSchema, entityIdSchema } from "@/lib/mcp/identifierSchemas";
 
 // Re-export so existing tests that import from this module continue to work.
-export { latSchema, lonSchema, altSchema };
+export { latSchema, lonSchema, altSchema, layerIdSchema };
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -115,7 +116,7 @@ export function registerGlobeCommandTools(
                 "Parameters: entityId (optional, informational), lat (recommended), lon (recommended), sessionId (optional). " +
                 "Example: focus_entity({entityId:\"ship-123\",lat:35.68,lon:139.69})",
             inputSchema: {
-                entityId: z.string().optional().describe("Entity id (informational; coordinate resolution not yet supported -- also provide lat/lon)"),
+                entityId: entityIdSchema.optional().describe("Entity id (informational; coordinate resolution not yet supported, also provide lat/lon)"),
                 lat: latSchema.optional().describe("Latitude to focus on [-90, 90]"),
                 lon: lonSchema.optional().describe("Longitude to focus on [-180, 180]"),
                 sessionId: z.string().optional().describe("Target globe session id. Obtain valid ids by reading the globe://sessions resource. Omit to target your most-recently-active browser tab."),
@@ -152,7 +153,7 @@ export function registerGlobeCommandTools(
                 "Parameters: layerId (required), enabled (true/false, optional — omit to toggle current state), sessionId (optional). " +
                 "Example: toggle_layer({layerId:\"ais\",enabled:true})",
             inputSchema: {
-                layerId: z.string().describe("The plugin/layer identifier to toggle"),
+                layerId: layerIdSchema.describe("The plugin/layer identifier to toggle"),
                 enabled: z.boolean().optional().describe("True to enable, false to disable, omit to toggle"),
                 sessionId: z.string().optional().describe("Target globe session id. Obtain valid ids by reading the globe://sessions resource. Omit to target your most-recently-active browser tab."),
             },
