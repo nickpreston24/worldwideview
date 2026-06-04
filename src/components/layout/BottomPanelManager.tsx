@@ -24,6 +24,7 @@ export function BottomPanelManager() {
     );
 
     const isCoveredRef = useRef(false);
+    const isDraggingRef = useRef(false);
 
     useEffect(() => {
         if (activeBottomPanel) {
@@ -39,17 +40,18 @@ export function BottomPanelManager() {
     }, [activeBottomPanel]);
 
     // Pointer-capture drag handlers — attached directly to the resize handle element.
-    // Using setPointerCapture ensures pointermove/pointerup are delivered to the
-    // element even when the pointer leaves it, which is required for webkit
-    // (without capture, webkit drops synthetic pointermove events from Playwright
-    // and from fast real-user drags that leave the element bounds).
+    // setPointerCapture ensures pointermove/pointerup are delivered to the element even
+    // when the pointer leaves its bounds (required for fast real-user drags and Playwright).
+    // isDraggingRef guards the move handler instead of hasPointerCapture, which has
+    // inconsistent behaviour across webkit versions in CI for repeated drag sequences.
     const handleResizePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         e.currentTarget.setPointerCapture(e.pointerId);
+        isDraggingRef.current = true;
         document.body.classList.add("is-dragging-bottom-panel");
     };
 
     const handleResizePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-        if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+        if (!isDraggingRef.current) return;
         const newHeight = window.innerHeight - e.clientY;
         const clampedHeight = Math.max(120, Math.min(newHeight, window.innerHeight - 100));
         setBottomPanelHeight(clampedHeight);
@@ -57,6 +59,7 @@ export function BottomPanelManager() {
 
     const handleResizePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
         e.currentTarget.releasePointerCapture(e.pointerId);
+        isDraggingRef.current = false;
         document.body.classList.remove("is-dragging-bottom-panel");
     };
 
