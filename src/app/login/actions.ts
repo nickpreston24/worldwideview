@@ -28,6 +28,10 @@ export async function loginAction(formData: FormData): Promise<LoginResult> {
                     : "Something went wrong.",
             };
         }
-        throw error;
+        // Non-AuthError (e.g. DB unavailable, missing column, network issue):
+        // log server-side and return a safe generic message so the client
+        // never receives raw stack traces and loading state always resets.
+        console.error("[loginAction] unexpected error:", error);
+        return { success: false, error: "Something went wrong. Please try again." };
     }
 }

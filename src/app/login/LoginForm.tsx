@@ -30,7 +30,14 @@ export default function LoginForm() {
         setLoading(true);
 
         const formData = new FormData(e.currentTarget);
-        const result = await loginAction(formData);
+        let result;
+        try {
+            result = await loginAction(formData);
+        } catch {
+            setError("Something went wrong. Please try again.");
+            setLoading(false);
+            return;
+        }
 
         if (result.success) {
             const target = getSafeRedirect(next);
