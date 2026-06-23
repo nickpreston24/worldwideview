@@ -9,7 +9,6 @@ datasource db {
 
 model User {
   id             String            @id @default(uuid())
-  tenantId       String?
   email          String
   name           String
   hashedPassword String
@@ -23,7 +22,7 @@ model User {
   memberships    WorkspaceMember[]
   apiKeys        UserApiKey[]
 
-  @@unique([tenantId, email])
+  @@unique([email])
   @@map("users")
 }
 
@@ -40,6 +39,7 @@ model Favorite {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, entityId])
+  @@index([tenantId])
   @@map("favorites")
 }
 
@@ -54,6 +54,7 @@ model InstalledPlugin {
   updatedAt   DateTime @updatedAt
 
   @@unique([tenantId, pluginId])
+  @@index([tenantId])
   @@map("installed_plugins")
 }
 
@@ -64,6 +65,7 @@ model Setting {
   value    String
 
   @@unique([tenantId, key])
+  @@index([tenantId])
   @@map("settings")
 }
 
@@ -71,10 +73,12 @@ model Workspace {
   id                   String            @id @default(uuid())
   name                 String
   subdomain            String            @unique
+  ownerId              String?
   status               String            @default("trialing")
   plan                 String            @default("basic")
   stripeCustomerId     String?
   stripeSubscriptionId String?
+  trialEndsAt          DateTime?
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
   members              WorkspaceMember[]
@@ -106,6 +110,7 @@ model MarketplaceCredential {
   updatedAt  DateTime @updatedAt
 
   @@unique([tenantId])
+  @@index([tenantId])
   @@map("marketplace_credentials")
 }
 
@@ -120,5 +125,6 @@ model UserApiKey {
   lastUsedAt   DateTime?
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
   @@map("user_api_keys")
 }
