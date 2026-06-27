@@ -25,9 +25,9 @@ vi.mock("better-auth/cookies", () => ({
 // ---------------------------------------------------------------------------
 // Import the helpers after mocks are set up
 // ---------------------------------------------------------------------------
-import { hasBetterAuthSession, createTestRequest, hasValidSession } from "./proxy-auth";
+import { hasBetterAuthCookie, createTestRequest, hasValidSession } from "./proxy-auth";
 
-describe("hasBetterAuthSession", () => {
+describe("hasBetterAuthCookie", () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
@@ -35,28 +35,28 @@ describe("hasBetterAuthSession", () => {
     it("returns true when Better Auth session cookie is present", () => {
         mockGetSessionCookie.mockReturnValue("valid-session-token");
         const req = createTestRequest();
-        const result = hasBetterAuthSession(req);
+        const result = hasBetterAuthCookie(req);
         expect(result).toBe(true);
     });
 
     it("returns false when Better Auth session cookie is null", () => {
         mockGetSessionCookie.mockReturnValue(null);
         const req = createTestRequest();
-        const result = hasBetterAuthSession(req);
+        const result = hasBetterAuthCookie(req);
         expect(result).toBe(false);
     });
 
     it("returns false when Better Auth session cookie is undefined", () => {
         mockGetSessionCookie.mockReturnValue(undefined);
         const req = createTestRequest();
-        const result = hasBetterAuthSession(req);
+        const result = hasBetterAuthCookie(req);
         expect(result).toBe(false);
     });
 
     it("calls getSessionCookie with the request object", () => {
         mockGetSessionCookie.mockReturnValue("token");
         const req = createTestRequest();
-        hasBetterAuthSession(req);
+        hasBetterAuthCookie(req);
         expect(mockGetSessionCookie).toHaveBeenCalledWith(req);
     });
 });

@@ -31,14 +31,17 @@ export function createTestRequest(): NextRequest {
 }
 
 /**
- * Check if the request has a valid Better Auth session cookie.
+ * Check if the request carries a Better Auth session cookie.
+ *
+ * NOTE: This checks only cookie PRESENCE, not cryptographic validity.
+ * A renamed surface-level guard to avoid implying JWT verification.
  *
  * Uses getSessionCookie() from better-auth/cookies — a pure sync
  * cookie-header parser that does NOT require Node.js runtime or Prisma.
  *
  * Returns true when a session cookie exists, false otherwise.
  */
-export function hasBetterAuthSession(req: NextRequest): boolean {
+export function hasBetterAuthCookie(req: NextRequest): boolean {
     const sessionCookie = getSessionCookie(req);
     return sessionCookie !== null && sessionCookie !== undefined;
 }
