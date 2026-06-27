@@ -40,6 +40,7 @@
     "@worldwideview/wwv-lib-incidents": "workspace:*",
     "@worldwideview/wwv-plugin-sdk": "workspace:*",
     "bcryptjs": "^3.0.3",
+    "better-auth": "^1.6.22",
     "cesium": "^1.142.0",
     "cheerio": "^1.2.0",
     "hls.js": "^1.6.16",
