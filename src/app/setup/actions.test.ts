@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createAdminAccount } from "./actions";
 import { prisma } from "@/lib/db";
 
+vi.mock("@/lib/password-strength", () => ({
+    evaluatePasswordStrength: vi.fn(() => ({ score: 3, feedback: "Password is strong." })),
+    MIN_PASSWORD_SCORE: 2,
+}));
+
 vi.mock("@/lib/db", () => ({
     prisma: {
         betterAuthUser: {

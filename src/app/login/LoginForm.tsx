@@ -40,7 +40,8 @@ export default function LoginForm() {
         });
 
         if (signInError) {
-            setError(signInError.message || "Invalid credentials.");
+            console.error("[Login] Sign-in error:", signInError.message);
+            setError("Sign in failed. Check your credentials and try again.");
             setLoading(false);
         }
         // On success, Better Auth redirects to callbackURL

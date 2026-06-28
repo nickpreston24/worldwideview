@@ -2,6 +2,8 @@
 
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { isDemo } from "@/core/edition";
+import { evaluatePasswordStrength, MIN_PASSWORD_SCORE } from "@/lib/password-strength";
 
 interface SetupResult {
     success: boolean;
@@ -22,6 +24,10 @@ export async function createAdminAccount(formData: FormData): Promise<SetupResul
 
     if (!name || !email || !password) {
         return { success: false, error: "All fields are required." };
+    }
+    const strength = evaluatePasswordStrength(password);
+    if (strength.score < MIN_PASSWORD_SCORE) {
+        return { success: false, error: strength.feedback };
     }
     if (password.length < 8) {
         return { success: false, error: "Password must be at least 8 characters." };
@@ -45,6 +51,7 @@ export async function createAdminAccount(formData: FormData): Promise<SetupResul
                 email,
                 name,
                 emailVerified: false,
+                role: isDemo ? "demo-admin" : "user",
             },
         }),
         prisma.betterAuthAccount.create({

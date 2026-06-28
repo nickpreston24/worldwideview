@@ -69,7 +69,7 @@ describe("LoginForm", () => {
         fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
         await waitFor(() => {
-            expect(screen.getByText("Invalid credentials.")).toBeDefined();
+            expect(screen.getByText("Sign in failed. Check your credentials and try again.")).toBeDefined();
         });
     });
 

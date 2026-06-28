@@ -53,6 +53,15 @@ export const auth = betterAuth({
             return true;
         },
     },
+    user: {
+        additionalFields: {
+            role: {
+                type: "string",
+                required: true,
+                defaultValue: "user",
+            },
+        },
+    },
     // Cross-subdomain cookies: .wwv.local for cloud, exact domain for local.
     // Local edition: cookies scoped to exact host (localhost/wwv.local),
     // because localhost has special cookie domain rules and Safari ITP
