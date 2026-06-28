@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { isDemo } from "@/core/edition";
-import { loginAction } from "./actions";
+import { authClient } from "@/lib/auth-client";
 import styles from "../setup/setup.module.css";
 
 /** Allow relative paths or same-origin URLs only (local edition is self-contained). */
@@ -30,27 +30,20 @@ export default function LoginForm() {
         setLoading(true);
 
         const formData = new FormData(e.currentTarget);
-        let result;
-        try {
-            result = await loginAction(formData);
-        } catch {
-            setError("Something went wrong. Please try again.");
-            setLoading(false);
-            return;
-        }
+        const email = formData.get("email") as string;
+        const password = formData.get("password") as string;
 
-        if (result.success) {
-            const target = getSafeRedirect(next);
-            if (target === "/") {
-                router.push("/");
-                router.refresh();
-            } else {
-                window.location.href = target;
-            }
-        } else {
-            setError(result.error ?? "Login failed.");
+        const { error: signInError } = await authClient.signIn.email({
+            email,
+            password,
+            callbackURL: getSafeRedirect(next),
+        });
+
+        if (signInError) {
+            setError(signInError.message || "Invalid credentials.");
             setLoading(false);
         }
+        // On success, Better Auth redirects to callbackURL
     }
 
     return (
