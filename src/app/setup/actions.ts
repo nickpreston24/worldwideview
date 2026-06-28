@@ -8,7 +8,12 @@ interface SetupResult {
     error?: string;
 }
 
-/** Create the initial admin account. Rejects if any user already exists. */
+/** Create the initial admin account. Rejects if any user already exists.
+ *
+ * Creates records in BOTH Better Auth tables (user + account) so the
+ * admin can log in via Better Auth client SDK. The account uses the
+ * "credential" providerId for email/password authentication.
+ */
 export async function createAdminAccount(formData: FormData): Promise<SetupResult> {
     const name = formData.get("name") as string;
     const email = formData.get("email") as string;
@@ -25,17 +30,33 @@ export async function createAdminAccount(formData: FormData): Promise<SetupResul
         return { success: false, error: "Passwords do not match." };
     }
 
-    const existingCount = await prisma.user.count();
+    const existingCount = await prisma.betterAuthUser.count();
     if (existingCount > 0) {
         return { success: false, error: "Admin account already exists." };
     }
 
+    const userId = crypto.randomUUID();
     const hashedPassword = hashSync(password, 12);
-    await prisma.user.create({
-        data: {
- name, email, hashedPassword, role: "admin"
-},
-    });
+
+    await prisma.$transaction([
+        prisma.betterAuthUser.create({
+            data: {
+                id: userId,
+                email,
+                name,
+                emailVerified: false,
+            },
+        }),
+        prisma.betterAuthAccount.create({
+            data: {
+                id: crypto.randomUUID(),
+                accountId: email,
+                providerId: "credential",
+                userId: userId,
+                password: hashedPassword,
+            },
+        }),
+    ]);
 
     return { success: true };
 }
