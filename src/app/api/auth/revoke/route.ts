@@ -1,21 +1,21 @@
 import { NextResponse } from "next/server";
-import { auth, signOut } from "@/lib/auth";
+import { getServerSession } from "@/lib/ba-session";
+import { auth } from "@/lib/better-auth";
 import { prisma } from "@/lib/db";
 import { isCloud } from "@/core/edition";
 
 /**
  * POST /api/auth/revoke: "sign out everywhere".
  *
- * Increments the authenticated user's `sessionVersion`, which invalidates every
- * existing JWT issued for that user: the auth `jwt` callback compares each
- * token's embedded version against the DB on its next use and rejects stale
- * ones. Also clears the caller's own session cookie.
+ * Calls Better Auth `auth.api.signOut()` to invalidate the current session
+ * server-side, then increments `sessionVersion` to invalidate ALL sessions
+ * for this user (same pattern as the old NextAuth behavior).
  *
  * Requires an authenticated session. Same-origin only in practice: the session
  * cookie is `sameSite=lax`, so a cross-site POST carries no credentials.
  */
 export async function POST() {
-    const session = await auth();
+    const session = await getServerSession();
     const userId = session?.user?.id;
     if (!userId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -29,6 +29,9 @@ export async function POST() {
         });
     }
 
-    await signOut({ redirect: false });
+    // Invalidate the current session server-side
+    await auth.api.signOut({ headers: new Headers() });
     return NextResponse.json({ ok: true });
 }
+
+export const runtime = "nodejs";
