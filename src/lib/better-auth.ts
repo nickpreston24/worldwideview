@@ -54,6 +54,7 @@ export const auth = betterAuth({
         },
     },
     user: {
+        modelName: "betterAuthUser",
         additionalFields: {
             role: {
                 type: "string",
@@ -61,6 +62,15 @@ export const auth = betterAuth({
                 defaultValue: "user",
             },
         },
+    },
+    session: {
+        modelName: "betterAuthSession",
+    },
+    account: {
+        modelName: "betterAuthAccount",
+    },
+    verification: {
+        modelName: "betterAuthVerification",
     },
     // Cross-subdomain cookies: .wwv.local for cloud, exact domain for local.
     // Local edition: cookies scoped to exact host (localhost/wwv.local),
@@ -85,7 +95,13 @@ export const auth = betterAuth({
     plugins: [
         // Multi-tenant organization scaffolding — single-user org for local,
         // full multi-tenant for cloud.
-        organization(),
+        organization({
+          schema: {
+            organization: { modelName: 'pluginOrganization' },
+            member: { modelName: 'pluginMember' },
+            invitation: { modelName: 'pluginInvitation' },
+          },
+        }),
 
         // User management — list, ban, impersonate.
         admin(),
