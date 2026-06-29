@@ -163,7 +163,7 @@ async function globalSetup(config: FullConfig) {
     await page.click('button[type="submit"]');
 
     // Wait for redirect to home
-    await page.waitForURL(baseURL);
+    await page.waitForURL(baseURL + '/');
 
     // 5. Save storage state
     if (typeof storageState === 'string') {

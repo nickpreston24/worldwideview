@@ -87,6 +87,7 @@ export default defineConfig({
       command: 'pnpm dev',
       env: {
         PORT: '3001',
+        NEXT_PUBLIC_WWV_EDITION: 'demo',
         NEXT_PUBLIC_APP_URL: 'http://localhost:3001',
         NEXT_PUBLIC_MARKETPLACE_URL: 'http://localhost:3002',
       },
