@@ -95,24 +95,39 @@ export const auth = betterAuth({
     plugins: [
         // Multi-tenant organization scaffolding — single-user org for local,
         // full multi-tenant for cloud.
-        organization(),
+        organization({
+            schema: {
+                organization: { modelName: "pluginOrganization" },
+                member: { modelName: "pluginMember" },
+                invitation: { modelName: "pluginInvitation" },
+            },
+        }),
         // User management — list, ban, impersonate.
         admin(),
         // JWT + JWKS — token endpoint at /api/ba/token, JWKS at /api/ba/jwks.
         // The data engine fetches JWKS from this endpoint to verify plugin tickets.
-        jwt(),
+        jwt({
+            schema: { jwks: { modelName: "pluginJwks" } },
+        }),
         // One-time tokens — replaces setup token flow from src/lib/auth/setupToken.ts.
         // Tokens expire after 1 hour by default.
         oneTimeToken({ expiresIn: 3600 }),
         // API Key management — replaces the HMAC bridge and manual API key
         // logic. Keys can be created, verified, listed, and revoked. Rate
         // limiting built-in.
-        apiKey(),
+        apiKey({
+            schema: { apikey: { modelName: "pluginApiKey" } },
+        }),
         // Stripe billing — creates customers on sign-up, manages subscription
         // lifecycle. In local edition: stripeClient has a dummy key, plugin is
         // dormant. In cloud edition: real keys drive Checkout, Portal, and
         // webhook processing. createCustomerOnSignUp is gated on isCloud to
         // avoid dummy Stripe API calls in local edition.
-        stripe({ stripeClient, stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "", createCustomerOnSignUp: isCloud }),
+        stripe({
+            stripeClient,
+            stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
+            createCustomerOnSignUp: isCloud,
+            schema: { subscription: { modelName: "pluginSubscription" } },
+        }),
     ],
 });
