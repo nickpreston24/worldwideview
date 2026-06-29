@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createAdminAccount } from "./actions";
+import { evaluatePasswordStrength } from "@/lib/password-strength";
 import { prisma } from "@/lib/db";
 
 vi.mock("@/lib/password-strength", () => ({
@@ -74,5 +75,16 @@ describe("createAdminAccount", () => {
 
         expect(result.success).toBe(false);
         expect(result.error).toBe("Passwords do not match.");
+    });
+
+    it("rejects passwords below minimum strength", async () => {
+        vi.mocked(evaluatePasswordStrength).mockReturnValueOnce(
+            { score: 1, feedback: "Password is too weak." },
+        );
+
+        const result = await createAdminAccount(makeFormData());
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("Password is too weak.");
     });
 });

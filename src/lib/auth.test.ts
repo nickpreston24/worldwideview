@@ -18,10 +18,29 @@ vi.unmock("@/lib/auth");
 // vi.hoisted() runs before all vi.mock() factories, so the variable is
 // defined before the hoisted factory closure captures it.
 // ---------------------------------------------------------------------------
-const { mockUpsert, mockFindUnique } = vi.hoisted(() => ({
-    mockUpsert: vi.fn().mockResolvedValue(undefined),
-    mockFindUnique: vi.fn(),
-}));
+const {
+    mockUpsert, mockFindUnique,
+    mockBetterAuthUserFindFirst, mockBetterAuthAccountFindFirst,
+    mockCompareSync, mockGetDemoAdminSecret,
+    capturedAuthorize, mockCredentials,
+} = vi.hoisted(() => {
+    const captured = { current: null as ((creds: Record<string, unknown>) => Promise<unknown>) | null };
+    return {
+        mockUpsert: vi.fn().mockResolvedValue(undefined),
+        mockFindUnique: vi.fn(),
+        mockBetterAuthUserFindFirst: vi.fn(),
+        mockBetterAuthAccountFindFirst: vi.fn(),
+        mockCompareSync: vi.fn(() => false),
+        mockGetDemoAdminSecret: vi.fn(() => undefined),
+        capturedAuthorize: captured,
+        mockCredentials: vi.fn((opts: { authorize: typeof captured.current }) => {
+            captured.current = opts.authorize;
+            return { id: "credentials", name: "Credentials" };
+        }),
+    };
+});
+
+const editionState = vi.hoisted(() => ({ isCloud: false, isDemo: false }));
 
 vi.mock("@/lib/db", () => ({
     prisma: {
@@ -30,6 +49,8 @@ vi.mock("@/lib/db", () => ({
             findFirst: vi.fn(),
             findUnique: mockFindUnique,
         },
+        betterAuthUser: { findFirst: mockBetterAuthUserFindFirst },
+        betterAuthAccount: { findFirst: mockBetterAuthAccountFindFirst },
     },
 }));
 
@@ -43,7 +64,7 @@ vi.mock("next-auth", () => ({
     })),
 }));
 vi.mock("next-auth/providers/credentials", () => ({
-    default: vi.fn(() => ({ id: "credentials", name: "Credentials" })),
+    default: mockCredentials,
 }));
 vi.mock("@auth/supabase-adapter", () => ({
     SupabaseAdapter: vi.fn(() => ({})),
@@ -52,13 +73,13 @@ vi.mock("@/lib/auth.config", () => ({
     authConfig: { callbacks: {}, providers: [] },
 }));
 vi.mock("@/core/edition", () => ({
-    isCloud: false,
-    isDemo: false,
-    getDemoAdminSecret: vi.fn(() => undefined),
+    get isCloud() { return editionState.isCloud; },
+    get isDemo() { return editionState.isDemo; },
+    getDemoAdminSecret: mockGetDemoAdminSecret,
     DEMO_ADMIN_ROLE: "demo-admin",
     isHttpsDeployment: vi.fn(() => false),
 }));
-vi.mock("bcryptjs", () => ({ compareSync: vi.fn(() => false) }));
+vi.mock("bcryptjs", () => ({ compareSync: mockCompareSync }));
 
 // Import after mocks.
 import {
@@ -190,5 +211,100 @@ describe("revalidateSession -- jwt revocation check", () => {
         mockFindUnique.mockResolvedValue({ sessionVersion: 0, role: "user" });
         const result = await revalidateSession({ id: "u1" });
         expect(result).not.toBeNull();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// authorize -- local credentials provider (Better Auth models)
+// ---------------------------------------------------------------------------
+describe("authorize -- local credentials provider", () => {
+    const validCredentials = { email: "user@test.com", password: "secret" };
+    const betterUser = { id: "ba-uuid", email: "user@test.com", name: "Test User", role: "user" };
+    const betterAccount = { id: "acct-1", userId: "ba-uuid", providerId: "credential", password: "$2b$10$hashedpassword" };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        editionState.isCloud = false;
+        editionState.isDemo = false;
+        mockBetterAuthUserFindFirst.mockReset();
+        mockBetterAuthAccountFindFirst.mockReset();
+        mockCompareSync.mockReset();
+    });
+
+    it("returns the user object on success (non-cloud)", async () => {
+        mockBetterAuthUserFindFirst.mockResolvedValue(betterUser);
+        mockBetterAuthAccountFindFirst.mockResolvedValue(betterAccount);
+        mockCompareSync.mockReturnValue(true);
+
+        const result = await capturedAuthorize.current!(validCredentials) as Record<string, unknown>;
+
+        expect(result).not.toBeNull();
+        expect(result.id).toBe("ba-uuid");
+        expect(result.email).toBe("user@test.com");
+        expect(result.name).toBe("Test User");
+        expect(result.role).toBe("user");
+        expect(result.sessionVersion).toBe(0);
+        expect(mockUpsert).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns null when Better Auth user is not found", async () => {
+        mockBetterAuthUserFindFirst.mockResolvedValue(null);
+
+        const result = await capturedAuthorize.current!(validCredentials);
+
+        expect(result).toBeNull();
+        expect(mockBetterAuthAccountFindFirst).not.toHaveBeenCalled();
+    });
+
+    it("returns null when Better Auth account is not found", async () => {
+        mockBetterAuthUserFindFirst.mockResolvedValue(betterUser);
+        mockBetterAuthAccountFindFirst.mockResolvedValue(null);
+
+        const result = await capturedAuthorize.current!(validCredentials);
+
+        expect(result).toBeNull();
+        expect(mockCompareSync).not.toHaveBeenCalled();
+    });
+
+    it("returns null when the account has no password stored", async () => {
+        mockBetterAuthUserFindFirst.mockResolvedValue(betterUser);
+        mockBetterAuthAccountFindFirst.mockResolvedValue({ ...betterAccount, password: null });
+
+        const result = await capturedAuthorize.current!(validCredentials);
+
+        expect(result).toBeNull();
+    });
+
+    it("returns null when the password does not match", async () => {
+        mockBetterAuthUserFindFirst.mockResolvedValue(betterUser);
+        mockBetterAuthAccountFindFirst.mockResolvedValue(betterAccount);
+        mockCompareSync.mockReturnValue(false);
+
+        const result = await capturedAuthorize.current!(validCredentials);
+
+        expect(result).toBeNull();
+    });
+
+    it("returns null when email or password is empty", async () => {
+        const result1 = await capturedAuthorize.current!({ email: "", password: "x" });
+        expect(result1).toBeNull();
+
+        const result2 = await capturedAuthorize.current!({ email: "x", password: "" });
+        expect(result2).toBeNull();
+
+        const result3 = await capturedAuthorize.current!({});
+        expect(result3).toBeNull();
+    });
+
+    it("skips the local user upsert on cloud edition", async () => {
+        editionState.isCloud = true;
+        mockBetterAuthUserFindFirst.mockResolvedValue(betterUser);
+        mockBetterAuthAccountFindFirst.mockResolvedValue(betterAccount);
+        mockCompareSync.mockReturnValue(true);
+
+        const result = await capturedAuthorize.current!(validCredentials) as Record<string, unknown>;
+
+        expect(result).not.toBeNull();
+        expect(mockUpsert).not.toHaveBeenCalled();
     });
 });

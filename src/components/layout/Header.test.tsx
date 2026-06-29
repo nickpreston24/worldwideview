@@ -62,7 +62,6 @@ describe("Header signout", () => {
     });
 
     it("does not render signout button in demo edition", async () => {
-        // Re-mock isDemo for this test by re-rendering
         const mod = await import("@/core/edition");
         const original = mod.isDemo;
         Object.defineProperty(mod, "isDemo", { get: () => true });
@@ -73,5 +72,46 @@ describe("Header signout", () => {
         expect(buttons.length).toBe(0);
 
         Object.defineProperty(mod, "isDemo", { get: () => original });
+    });
+
+    it("renders signout button on mobile when not in demo", async () => {
+        const mobileMod = await import("@/core/hooks/useIsMobile");
+        const original = mobileMod.useIsMobile;
+        Object.defineProperty(mobileMod, "useIsMobile", { get: () => () => true });
+
+        render(<Header />);
+        expect(screen.getByTitle("Sign Out")).toBeDefined();
+
+        Object.defineProperty(mobileMod, "useIsMobile", { get: () => original });
+    });
+
+    it("does not render signout button on mobile in demo edition", async () => {
+        const mobileMod = await import("@/core/hooks/useIsMobile");
+        const mobileOriginal = mobileMod.useIsMobile;
+        Object.defineProperty(mobileMod, "useIsMobile", { get: () => () => true });
+
+        const mod = await import("@/core/edition");
+        const demoOriginal = mod.isDemo;
+        Object.defineProperty(mod, "isDemo", { get: () => true });
+
+        render(<Header />);
+
+        const buttons = screen.queryAllByTitle("Sign Out");
+        expect(buttons.length).toBe(0);
+
+        Object.defineProperty(mobileMod, "useIsMobile", { get: () => mobileOriginal });
+        Object.defineProperty(mod, "isDemo", { get: () => demoOriginal });
+    });
+
+    it("calls authClient.signOut when signout button is clicked", async () => {
+        render(<Header />);
+        const button = screen.getByTitle("Sign Out");
+        fireEvent.click(button);
+        expect(mockSignOut).toHaveBeenCalledTimes(1);
+        expect(mockSignOut).toHaveBeenCalledWith({
+            fetchOptions: {
+                onSuccess: expect.any(Function),
+            },
+        });
     });
 });
