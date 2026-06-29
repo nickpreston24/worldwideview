@@ -96,12 +96,20 @@ const localCredentialsProvider = Credentials({
             };
         }
 
-        const user = await prisma.user.findFirst({
-            where: { email }, // Note: in real cloud with RLS this would fetch tenant user if tenantId added
+        const betterUser = await prisma.betterAuthUser.findFirst({
+            where: { email },
         });
-        if (!user) return null;
+        if (!betterUser) return null;
 
-        const isValid = compareSync(password, user.hashedPassword);
+        const account = await prisma.betterAuthAccount.findFirst({
+            where: {
+                userId: betterUser.id,
+                providerId: 'credential',
+            },
+        });
+        if (!account || !account.password) return null;
+
+        const isValid = compareSync(password, account.password);
         if (!isValid) return null;
 
         // On the local edition, upsert the user row so that session.user.id
@@ -109,20 +117,19 @@ const localCredentialsProvider = Credentials({
         // Cloud users are managed by Supabase Auth (never reaches this branch).
         if (!isCloud) {
             await ensureLocalUserPersisted({
-                id: user.id,
-                email: user.email,
-                name: user.name,
-                role: user.role,
-                hashedPassword: user.hashedPassword,
+                id: betterUser.id,
+                email: betterUser.email,
+                name: betterUser.name,
+                role: betterUser.role,
             });
         }
 
         return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            sessionVersion: user.sessionVersion,
+            id: betterUser.id,
+            name: betterUser.name,
+            email: betterUser.email,
+            role: betterUser.role,
+            sessionVersion: 0,
         };
     },
 });
