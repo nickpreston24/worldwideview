@@ -54,6 +54,7 @@ export const auth = betterAuth({
         },
     },
     user: {
+        modelName: "betterAuthUser",
         additionalFields: {
             role: {
                 type: "string",
@@ -61,6 +62,15 @@ export const auth = betterAuth({
                 defaultValue: "user",
             },
         },
+    },
+    session: {
+        modelName: "betterAuthSession",
+    },
+    account: {
+        modelName: "betterAuthAccount",
+    },
+    verification: {
+        modelName: "betterAuthVerification",
     },
     // Cross-subdomain cookies: .wwv.local for cloud, exact domain for local.
     // Local edition: cookies scoped to exact host (localhost/wwv.local),
