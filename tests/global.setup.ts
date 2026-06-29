@@ -156,7 +156,11 @@ async function globalSetup(config: FullConfig) {
     console.log(`[Setup] Signing in via Better Auth API...`);
     const signInResponse = await fetch(`${baseURL}/api/ba/sign-in/email`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': baseURL,
+        'Referer': `${baseURL}/`,
+      },
       body: JSON.stringify({ email: TEST_USER_EMAIL, password }),
       redirect: 'manual',
     });
