@@ -153,8 +153,9 @@ async function globalSetup(config: FullConfig) {
     }
 
     // 4. Create session directly in DB and save storage state
-    // Bypasses the Better Auth API (which returns 500 in CI) — the session
-    // cookie is just the token value from the session table.
+    // Better Auth requires HMAC-SHA256 signed cookies: token.base64_sig
+    // An unsigned cookie passes proxy.ts (checks presence only) but fails
+    // route handlers using getServerSession() -> getSignedCookie().
     console.log(`[Setup] Creating session in database for storage state...`);
     const sessionToken = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -166,10 +167,20 @@ async function globalSetup(config: FullConfig) {
       },
     });
 
-    // 5. Save storage state with the session cookie
+    // HMAC-SHA256 sign the session token using BETTER_AUTH_SECRET
+    const authSecret = process.env.BETTER_AUTH_SECRET;
+    if (!authSecret) {
+      throw new Error('[Setup] BETTER_AUTH_SECRET is not set — cannot sign session cookie');
+    }
+    const hmac = crypto.createHmac('sha256', authSecret);
+    hmac.update(sessionToken);
+    const signature = hmac.digest('base64url');
+    const signedValue = `${sessionToken}.${signature}`;
+
+    // 5. Save storage state with the signed session cookie
     const cookies = [{
       name: 'better-auth.session_token',
-      value: sessionToken,
+      value: signedValue,
       domain: 'localhost',
       path: '/',
       httpOnly: false,
@@ -178,7 +189,7 @@ async function globalSetup(config: FullConfig) {
     }];
     if (typeof storageState === 'string') {
       fs.writeFileSync(storageState, JSON.stringify({ cookies, origins: [] }, null, 2));
-      console.log(`[Setup] Storage state saved with session token.`);
+      console.log(`[Setup] Storage state saved with signed session token.`);
     } else {
       console.warn("Storage state path is not a string, skipping saving context.");
     }
