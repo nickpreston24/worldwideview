@@ -92,9 +92,7 @@ export const auth = betterAuth({
 
         // JWT + JWKS — token endpoint at /api/ba/token, JWKS at /api/ba/jwks.
         // The data engine fetches JWKS from this endpoint to verify plugin tickets.
-        jwt({
-          schema: { jwks: { modelName: 'pluginJwks' } },
-        }),
+        jwt(),
 
         // One-time tokens — replaces setup token flow from src/lib/auth/setupToken.ts.
         // Tokens expire after 1 hour by default.
@@ -105,9 +103,7 @@ export const auth = betterAuth({
         // API Key management — replaces the HMAC bridge and manual API key
         // logic. Keys can be created, verified, listed, and revoked. Rate
         // limiting built-in.
-        apiKey(undefined, {
-          schema: { apiKey: { modelName: 'pluginApiKey' } },
-        }),
+        apiKey(),
 
         // Stripe billing — creates customers on sign-up, manages subscription
         // lifecycle. In local edition: stripeClient has a dummy key, plugin is
@@ -118,7 +114,6 @@ export const auth = betterAuth({
             stripeClient,
             stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
             createCustomerOnSignUp: isCloud,
-            schema: { subscription: { modelName: 'pluginSubscription' } },
         }),
     ],
 });
