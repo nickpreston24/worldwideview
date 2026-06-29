@@ -142,36 +142,55 @@ async function globalSetup(config: FullConfig) {
       }
     }
 
-    // 4. Create a session directly in DB and write storage state cookie
-    console.log(`[Setup] Creating session in database...`);
-    const sessionToken = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await prisma.betterAuthSession.create({
-      data: {
-        userId: betterUser.id,
-        token: sessionToken,
-        expiresAt,
+    // 4. Sign in via Better Auth API using fetch (the signed cookie will have the correct format)
+    console.log(`[Setup] Signing in via Better Auth API...`);
+    const signInResponse = await fetch(`${baseURL}/api/ba/sign-in/email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': baseURL!,
       },
+      body: JSON.stringify({ email: TEST_USER_EMAIL, password }),
+      redirect: 'manual',
     });
 
-    // 5. Save storage state with the session cookie
-    if (typeof storageState === 'string') {
-      const cookies = [{
-        name: 'better-auth.session_token',
-        value: sessionToken,
+    if (!signInResponse.ok) {
+      const body = await signInResponse.text();
+      throw new Error(`[Setup] Sign-in API returned ${signInResponse.status}: ${body}`);
+    }
+
+    // Extract all Set-Cookie headers from the response
+    const rawCookies: string[] = (signInResponse.headers as any).getSetCookie?.() ?? [];
+    if (rawCookies.length === 0) {
+      const first = signInResponse.headers.get('set-cookie');
+      if (first) rawCookies.push(first);
+    }
+    const cookies: { name: string; value: string; domain: string; path: string; httpOnly: boolean; secure: boolean; sameSite: 'Lax' | 'Strict' | 'None' }[] = [];
+    for (const raw of rawCookies) {
+      const [nameVal] = raw.split(';');
+      const eqIdx = nameVal.indexOf('=');
+      const name = nameVal.substring(0, eqIdx).trim();
+      const val = nameVal.substring(eqIdx + 1).trim();
+      cookies.push({
+        name,
+        value: val,
         domain: 'localhost',
         path: '/',
-        httpOnly: false,
+        httpOnly: true,
         secure: false,
         sameSite: 'Lax' as const,
-      }];
+      });
+    }
+
+    // 5. Save storage state with the cookies from the API response
+    if (typeof storageState === 'string') {
       const state = { cookies, origins: [] };
       const stateDir = path.dirname(storageState);
       if (!fs.existsSync(stateDir)) {
         fs.mkdirSync(stateDir, { recursive: true });
       }
       fs.writeFileSync(storageState, JSON.stringify(state, null, 2));
-      console.log(`[Setup] Storage state saved.`);
+      console.log(`[Setup] Storage state saved with ${cookies.length} cookies: ${cookies.map(c => c.name).join(', ')}`);
     } else {
       console.warn("Storage state path is not a string, skipping saving context.");
     }
