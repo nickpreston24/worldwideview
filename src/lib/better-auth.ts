@@ -54,6 +54,7 @@ export const auth = betterAuth({
         },
     },
     user: {
+        modelName: "betterAuthUser",
         additionalFields: {
             role: {
                 type: "string",
@@ -61,6 +62,15 @@ export const auth = betterAuth({
                 defaultValue: "user",
             },
         },
+    },
+    session: {
+        modelName: "betterAuthSession",
+    },
+    account: {
+        modelName: "betterAuthAccount",
+    },
+    verification: {
+        modelName: "betterAuthVerification",
     },
     // Cross-subdomain cookies: .wwv.local for cloud, exact domain for local.
     // Local edition: cookies scoped to exact host (localhost/wwv.local),
@@ -86,34 +96,23 @@ export const auth = betterAuth({
         // Multi-tenant organization scaffolding — single-user org for local,
         // full multi-tenant for cloud.
         organization(),
-
         // User management — list, ban, impersonate.
         admin(),
-
         // JWT + JWKS — token endpoint at /api/ba/token, JWKS at /api/ba/jwks.
         // The data engine fetches JWKS from this endpoint to verify plugin tickets.
         jwt(),
-
         // One-time tokens — replaces setup token flow from src/lib/auth/setupToken.ts.
         // Tokens expire after 1 hour by default.
-        oneTimeToken({
-            expiresIn: 3600,
-        }),
-
+        oneTimeToken({ expiresIn: 3600 }),
         // API Key management — replaces the HMAC bridge and manual API key
         // logic. Keys can be created, verified, listed, and revoked. Rate
         // limiting built-in.
         apiKey(),
-
         // Stripe billing — creates customers on sign-up, manages subscription
         // lifecycle. In local edition: stripeClient has a dummy key, plugin is
         // dormant. In cloud edition: real keys drive Checkout, Portal, and
         // webhook processing. createCustomerOnSignUp is gated on isCloud to
         // avoid dummy Stripe API calls in local edition.
-        stripe({
-            stripeClient,
-            stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
-            createCustomerOnSignUp: isCloud,
-        }),
+        stripe({ stripeClient, stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "", createCustomerOnSignUp: isCloud }),
     ],
 });
