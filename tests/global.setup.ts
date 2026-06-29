@@ -73,16 +73,39 @@ async function globalSetup(config: FullConfig) {
 
     // 3. Clean up any orphaned user and create the test user
     console.log(`[Setup] Upserting test user: ${TEST_USER_EMAIL}`);
+
+    // Better Auth stores credentials in the Account model (providerId: "credential").
+    // Delete the account first to respect FK constraints, then the user.
+    await prisma.betterAuthAccount.deleteMany({
+        where: { user: { email: TEST_USER_EMAIL } }
+    });
+    await prisma.betterAuthSession.deleteMany({
+        where: { user: { email: TEST_USER_EMAIL } }
+    });
+    await prisma.betterAuthUser.deleteMany({
+        where: { email: TEST_USER_EMAIL }
+    });
+    // Also clean up the old User model for a clean state
     await prisma.user.deleteMany({
         where: { email: TEST_USER_EMAIL }
     });
 
-    await prisma.user.create({
+    const betterUser = await prisma.betterAuthUser.create({
       data: {
         email: TEST_USER_EMAIL,
         name: 'Playwright E2E Tester',
-        hashedPassword: hashedPassword,
+        emailVerified: true,
         role: 'ADMIN',
+      },
+    });
+
+    // Create the credential account so Better Auth can verify the password
+    await prisma.betterAuthAccount.create({
+      data: {
+        userId: betterUser.id,
+        providerId: 'credential',
+        accountId: TEST_USER_EMAIL,
+        password: hashedPassword,
       },
     });
 

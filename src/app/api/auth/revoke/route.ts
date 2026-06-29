@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
     // Cloud identities are managed by Supabase; there are no local session rows.
     if (!isCloud) {
-        await prisma.session.deleteMany({ where: { userId } });
+        await prisma.betterAuthSession.deleteMany({ where: { userId } });
     }
 
     // Invalidate the current session server-side using actual request headers
