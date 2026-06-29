@@ -54,7 +54,6 @@ export const auth = betterAuth({
         },
     },
     user: {
-        modelName: "betterAuthUser",
         additionalFields: {
             role: {
                 type: "string",
@@ -62,15 +61,6 @@ export const auth = betterAuth({
                 defaultValue: "user",
             },
         },
-    },
-    session: {
-        modelName: "betterAuthSession",
-    },
-    account: {
-        modelName: "betterAuthAccount",
-    },
-    verification: {
-        modelName: "betterAuthVerification",
     },
     // Cross-subdomain cookies: .wwv.local for cloud, exact domain for local.
     // Local edition: cookies scoped to exact host (localhost/wwv.local),
@@ -95,20 +85,16 @@ export const auth = betterAuth({
     plugins: [
         // Multi-tenant organization scaffolding — single-user org for local,
         // full multi-tenant for cloud.
-        organization({
-          schema: {
-            organization: { modelName: 'pluginOrganization' },
-            member: { modelName: 'pluginMember' },
-            invitation: { modelName: 'pluginInvitation' },
-          },
-        }),
+        organization(),
 
         // User management — list, ban, impersonate.
         admin(),
 
         // JWT + JWKS — token endpoint at /api/ba/token, JWKS at /api/ba/jwks.
         // The data engine fetches JWKS from this endpoint to verify plugin tickets.
-        jwt(),
+        jwt({
+          schema: { jwks: { modelName: 'pluginJwks' } },
+        }),
 
         // One-time tokens — replaces setup token flow from src/lib/auth/setupToken.ts.
         // Tokens expire after 1 hour by default.
@@ -119,7 +105,9 @@ export const auth = betterAuth({
         // API Key management — replaces the HMAC bridge and manual API key
         // logic. Keys can be created, verified, listed, and revoked. Rate
         // limiting built-in.
-        apiKey(),
+        apiKey(undefined, {
+          schema: { apiKey: { modelName: 'pluginApiKey' } },
+        }),
 
         // Stripe billing — creates customers on sign-up, manages subscription
         // lifecycle. In local edition: stripeClient has a dummy key, plugin is
@@ -130,6 +118,7 @@ export const auth = betterAuth({
             stripeClient,
             stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
             createCustomerOnSignUp: isCloud,
+            schema: { subscription: { modelName: 'pluginSubscription' } },
         }),
     ],
 });
