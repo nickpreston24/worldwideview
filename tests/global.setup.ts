@@ -152,27 +152,62 @@ async function globalSetup(config: FullConfig) {
       }
     }
 
-    // 4. Perform UI Login
-    console.log(`[Setup] Logging in via UI to generate storage state...`);
-    const browser = await chromium.launch();
-    const page = await browser.newPage();
-    
-    await page.goto(`${baseURL}/login`);
-    await page.fill('input[name="email"]', TEST_USER_EMAIL);
-    await page.fill('input[name="password"]', password);
-    await page.click('button[type="submit"]');
+    // 4. Sign in via Better Auth API directly (bypasses browser navigation issues in CI)
+    console.log(`[Setup] Signing in via Better Auth API...`);
+    const signInResponse = await fetch(`${baseURL}/api/ba/sign-in/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: TEST_USER_EMAIL, password }),
+      redirect: 'manual',
+    });
 
-    // Wait for redirect to home
-    await page.waitForURL(baseURL + '/');
-
-    // 5. Save storage state
-    if (typeof storageState === 'string') {
-        await page.context().storageState({ path: storageState });
-    } else {
-        console.warn("Storage state path is not a string, skipping saving context.")
+    if (!signInResponse.ok) {
+      const body = await signInResponse.text();
+      throw new Error(`Sign-in API returned ${signInResponse.status}: ${body}`);
     }
 
-    await browser.close();
+    // Extract Set-Cookie headers (Node.js 18+ getSetCookie)
+    const rawCookies: string[] = typeof signInResponse.headers.getSetCookie === 'function'
+      ? signInResponse.headers.getSetCookie()
+      : [];
+    if (rawCookies.length === 0) {
+      const first = signInResponse.headers.get('set-cookie');
+      if (first) rawCookies.push(first);
+    }
+
+    interface SetupCookie {
+      name: string; value: string; domain: string; path: string;
+      httpOnly: boolean; secure: boolean; sameSite: 'Lax' | 'Strict' | 'None';
+    }
+    const cookies: SetupCookie[] = [];
+    for (const raw of rawCookies) {
+      const [nameVal, ...attrs] = raw.split(';');
+      const eqIdx = nameVal.indexOf('=');
+      const name = nameVal.substring(0, eqIdx).trim();
+      const value = nameVal.substring(eqIdx + 1).trim();
+      const cookie: SetupCookie = { name, value, domain: 'localhost', path: '/', httpOnly: false, secure: false, sameSite: 'Lax' };
+      for (const attr of attrs) {
+        const a = attr.trim().toLowerCase();
+        if (a === 'httponly') cookie.httpOnly = true;
+        if (a === 'secure') cookie.secure = true;
+        if (a.startsWith('domain=')) cookie.domain = a.split('=')[1];
+        if (a.startsWith('path=')) cookie.path = a.split('=')[1];
+        if (a.startsWith('samesite=')) cookie.sameSite = a.split('=')[1] as SetupCookie['sameSite'];
+      }
+      cookies.push(cookie);
+    }
+
+    if (cookies.length === 0) {
+      throw new Error('No cookies returned from sign-in API — auth may have failed silently');
+    }
+
+    // 5. Save storage state with real session cookie from the API response
+    if (typeof storageState === 'string') {
+      fs.writeFileSync(storageState, JSON.stringify({ cookies, origins: [] }, null, 2));
+      console.log(`[Setup] Storage state saved with ${cookies.length} cookies.`);
+    } else {
+      console.warn("Storage state path is not a string, skipping saving context.");
+    }
     console.log(`[Setup] Global setup complete.`);
   } catch (error) {
     console.error(`[Setup] Error during global setup:`, error);
