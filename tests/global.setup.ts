@@ -85,11 +85,6 @@ async function globalSetup(config: FullConfig) {
     await prisma.betterAuthUser.deleteMany({
         where: { email: TEST_USER_EMAIL }
     });
-    // Also clean up the old User model for a clean state
-    await prisma.user.deleteMany({
-        where: { email: TEST_USER_EMAIL }
-    });
-
     const betterUser = await prisma.betterAuthUser.create({
       data: {
         email: TEST_USER_EMAIL,
@@ -106,17 +101,6 @@ async function globalSetup(config: FullConfig) {
         providerId: 'credential',
         accountId: TEST_USER_EMAIL,
         password: hashedPassword,
-      },
-    });
-
-    // Also create the user in the old User table (Better Auth default modelName queries prisma.user)
-    await prisma.user.create({
-      data: {
-        id: betterUser.id,
-        email: TEST_USER_EMAIL,
-        name: 'Playwright E2E Tester',
-        role: 'ADMIN',
-        hashedPassword,
       },
     });
 
