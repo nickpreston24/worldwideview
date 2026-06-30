@@ -2,13 +2,12 @@
  * Better Auth instance configuration.
  *
  * This is the auth SERVER instance — hosts the Better Auth runtime with
- * Prisma adapter and cross-subdomain cookie support.
+ * Prisma adapter.
  *
  * Coexists with NextAuth during Phase 71 migration. Both auth systems share
  * the same PostgreSQL database using lowercase @@map() table names.
  *
  * Key decisions:
- *  - crossSubDomainCookies gated on isCloud (local uses exact-domain cookies)
  *  - cookiePrefix "better-auth" avoids collision with NextAuth's "next-auth"
  *  - trustedOrigins configurable via env vars with localhost fallbacks
  *  - basePath: "/api/ba" to avoid catch-all collision with NextAuth during coexistence
@@ -53,15 +52,26 @@ export const auth = betterAuth({
             return true;
         },
     },
-    // Cross-subdomain cookies: .wwv.local for cloud, exact domain for local.
-    // Local edition: cookies scoped to exact host (localhost/wwv.local),
-    // because localhost has special cookie domain rules and Safari ITP
-    // blocks .local cross-domain cookies on non-HTTPS origins.
-    advanced: {
-        crossSubDomainCookies: {
-            enabled: isCloud,
-            domain: ".wwv.local",
+    user: {
+        modelName: "betterAuthUser",
+        additionalFields: {
+            role: {
+                type: "string",
+                required: true,
+                defaultValue: "user",
+            },
         },
+    },
+    session: {
+        modelName: "betterAuthSession",
+    },
+    account: {
+        modelName: "betterAuthAccount",
+    },
+    verification: {
+        modelName: "betterAuthVerification",
+    },
+    advanced: {
         cookiePrefix: "better-auth",
     },
     // Trusted origins: allow requests from all three apps in dev and prod.
@@ -76,26 +86,29 @@ export const auth = betterAuth({
     plugins: [
         // Multi-tenant organization scaffolding — single-user org for local,
         // full multi-tenant for cloud.
-        organization(),
-
+        organization({
+            schema: {
+                organization: { modelName: "pluginOrganization" },
+                member: { modelName: "pluginMember" },
+                invitation: { modelName: "pluginInvitation" },
+            },
+        }),
         // User management — list, ban, impersonate.
         admin(),
-
         // JWT + JWKS — token endpoint at /api/ba/token, JWKS at /api/ba/jwks.
         // The data engine fetches JWKS from this endpoint to verify plugin tickets.
-        jwt(),
-
+        jwt({
+            schema: { jwks: { modelName: "pluginJwks" } },
+        }),
         // One-time tokens — replaces setup token flow from src/lib/auth/setupToken.ts.
         // Tokens expire after 1 hour by default.
-        oneTimeToken({
-            expiresIn: 3600,
-        }),
-
+        oneTimeToken({ expiresIn: 3600 }),
         // API Key management — replaces the HMAC bridge and manual API key
         // logic. Keys can be created, verified, listed, and revoked. Rate
         // limiting built-in.
-        apiKey(),
-
+        apiKey({
+            schema: { apikey: { modelName: "pluginApiKey" } },
+        }),
         // Stripe billing — creates customers on sign-up, manages subscription
         // lifecycle. In local edition: stripeClient has a dummy key, plugin is
         // dormant. In cloud edition: real keys drive Checkout, Portal, and
@@ -105,6 +118,7 @@ export const auth = betterAuth({
             stripeClient,
             stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
             createCustomerOnSignUp: isCloud,
+            schema: { subscription: { modelName: "pluginSubscription" } },
         }),
     ],
 });

@@ -96,33 +96,41 @@ const localCredentialsProvider = Credentials({
             };
         }
 
-        const user = await prisma.user.findFirst({
-            where: { email }, // Note: in real cloud with RLS this would fetch tenant user if tenantId added
+        const betterUser = await prisma.betterAuthUser.findFirst({
+            where: { email },
         });
-        if (!user) return null;
+        if (!betterUser) return null;
 
-        const isValid = compareSync(password, user.hashedPassword);
+        const account = await prisma.betterAuthAccount.findFirst({
+            where: {
+                userId: betterUser.id,
+                providerId: 'credential',
+            },
+        });
+        if (!account || !account.password) return null;
+
+        const isValid = compareSync(password, account.password);
         if (!isValid) return null;
 
         // On the local edition, upsert the user row so that session.user.id
         // always corresponds to a real `users` record even after a DB reset.
         // Cloud users are managed by Supabase Auth (never reaches this branch).
+        // ADR-0008: Remove with NextAuth (Phase 73). All editions should upsert local user.
         if (!isCloud) {
             await ensureLocalUserPersisted({
-                id: user.id,
-                email: user.email,
-                name: user.name,
-                role: user.role,
-                hashedPassword: user.hashedPassword,
+                id: betterUser.id,
+                email: betterUser.email,
+                name: betterUser.name,
+                role: betterUser.role,
             });
         }
 
         return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            sessionVersion: user.sessionVersion,
+            id: betterUser.id,
+            name: betterUser.name,
+            email: betterUser.email,
+            role: betterUser.role,
+            sessionVersion: 0,
         };
     },
 });
@@ -188,6 +196,7 @@ export const {
             },
         },
     },
+    // ADR-0008: This edition-conditional Supabase adapter violates dual-auth. Remove with NextAuth (Phase 73).
     adapter: isCloud ? SupabaseAdapter({
         url: process.env.NEXT_PUBLIC_SUPABASE_URL || "http://dummy.supabase.co",
         secret: process.env.SUPABASE_SERVICE_ROLE_KEY || "dummy",
@@ -215,6 +224,7 @@ export const {
             // that deleted users, cross-database tokens, and bumped
             // sessionVersions are rejected. Cloud identities live in Supabase
             // (no local `users` row), so they skip the Prisma comparison.
+            // ADR-0008: Remove with NextAuth (Phase 73). Cloud should not skip session revalidation.
             if (isCloud) return token;
             return revalidateSession(token);
         },

@@ -73,16 +73,50 @@ async function globalSetup(config: FullConfig) {
 
     // 3. Clean up any orphaned user and create the test user
     console.log(`[Setup] Upserting test user: ${TEST_USER_EMAIL}`);
+
+    // Better Auth stores credentials in the Account model (providerId: "credential").
+    // Delete the account first to respect FK constraints, then the user.
+    await prisma.betterAuthAccount.deleteMany({
+        where: { user: { email: TEST_USER_EMAIL } }
+    });
+    await prisma.betterAuthSession.deleteMany({
+        where: { user: { email: TEST_USER_EMAIL } }
+    });
+    await prisma.betterAuthUser.deleteMany({
+        where: { email: TEST_USER_EMAIL }
+    });
+    // Also clean up the old User model for a clean state
     await prisma.user.deleteMany({
         where: { email: TEST_USER_EMAIL }
     });
 
-    await prisma.user.create({
+    const betterUser = await prisma.betterAuthUser.create({
       data: {
         email: TEST_USER_EMAIL,
         name: 'Playwright E2E Tester',
-        hashedPassword: hashedPassword,
+        emailVerified: true,
         role: 'ADMIN',
+      },
+    });
+
+    // Create the credential account so Better Auth can verify the password
+    await prisma.betterAuthAccount.create({
+      data: {
+        userId: betterUser.id,
+        providerId: 'credential',
+        accountId: TEST_USER_EMAIL,
+        password: hashedPassword,
+      },
+    });
+
+    // Also create the user in the old User table (Better Auth default modelName queries prisma.user)
+    await prisma.user.create({
+      data: {
+        id: betterUser.id,
+        email: TEST_USER_EMAIL,
+        name: 'Playwright E2E Tester',
+        role: 'ADMIN',
+        hashedPassword,
       },
     });
 
@@ -118,27 +152,47 @@ async function globalSetup(config: FullConfig) {
       }
     }
 
-    // 4. Perform UI Login
-    console.log(`[Setup] Logging in via UI to generate storage state...`);
-    const browser = await chromium.launch();
-    const page = await browser.newPage();
-    
-    await page.goto(`${baseURL}/login`);
-    await page.fill('input[name="email"]', TEST_USER_EMAIL);
-    await page.fill('input[name="password"]', password);
-    await page.click('button[type="submit"]');
+    // 4. Create session directly in DB and save storage state
+    // Better Auth requires HMAC-SHA256 signed cookies: token.base64_sig
+    // An unsigned cookie passes proxy.ts (checks presence only) but fails
+    // route handlers using getServerSession() -> getSignedCookie().
+    console.log(`[Setup] Creating session in database for storage state...`);
+    const sessionToken = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await prisma.betterAuthSession.create({
+      data: {
+        userId: betterUser.id,
+        token: sessionToken,
+        expiresAt,
+      },
+    });
 
-    // Wait for redirect to home
-    await page.waitForURL(baseURL);
-
-    // 5. Save storage state
-    if (typeof storageState === 'string') {
-        await page.context().storageState({ path: storageState });
-    } else {
-        console.warn("Storage state path is not a string, skipping saving context.")
+    // HMAC-SHA256 sign the session token using BETTER_AUTH_SECRET
+    const authSecret = process.env.BETTER_AUTH_SECRET;
+    if (!authSecret) {
+      throw new Error('[Setup] BETTER_AUTH_SECRET is not set — cannot sign session cookie');
     }
+    const hmac = crypto.createHmac('sha256', authSecret);
+    hmac.update(sessionToken);
+    const signature = hmac.digest('base64');
+    const signedValue = `${sessionToken}.${signature}`;
 
-    await browser.close();
+    // 5. Save storage state with the signed session cookie
+    const cookies = [{
+      name: 'better-auth.session_token',
+      value: signedValue,
+      domain: 'localhost',
+      path: '/',
+      httpOnly: false,
+      secure: false,
+      sameSite: 'Lax' as const,
+    }];
+    if (typeof storageState === 'string') {
+      fs.writeFileSync(storageState, JSON.stringify({ cookies, origins: [] }, null, 2));
+      console.log(`[Setup] Storage state saved with signed session token.`);
+    } else {
+      console.warn("Storage state path is not a string, skipping saving context.");
+    }
     console.log(`[Setup] Global setup complete.`);
   } catch (error) {
     console.error(`[Setup] Error during global setup:`, error);

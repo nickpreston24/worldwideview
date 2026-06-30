@@ -1,8 +1,7 @@
 /* eslint-disable no-console */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
-import { isDemo, isHttpsDeployment } from "@/core/edition";
+import { isDemo } from "@/core/edition";
 import { hasBetterAuthCookie } from "@/lib/proxy-auth";
 
 const workspaceCache = new Map<string, { status: string; expiresAt: number }>();
@@ -43,22 +42,6 @@ const PUBLIC_API_PREFIXES = [
 
 function isPublicApiPath(path: string): boolean {
     return PUBLIC_API_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
-}
-
-// Resolve the Auth.js session token, handling the __Secure- cookie prefix used
-// behind a TLS-terminating reverse proxy (the public URL is https but the
-// request reaching us may be plain http). Detect via X-Forwarded-Proto / AUTH_URL.
-async function getSessionToken(req: NextRequest) {
-    // Request-aware OR the deploy-wide https signal (isHttpsDeployment), so the
-    // reader agrees with the cookie writer (auth.ts) on the __Secure- prefix.
-    const isSecure = req.headers.get("x-forwarded-proto") === "https"
-        || isHttpsDeployment()
-        || req.nextUrl.protocol === "https:";
-    return getToken({
-        req,
-        secret: process.env.AUTH_SECRET,
-        secureCookie: isSecure,
-    });
 }
 
 async function resolveWorkspace(subdomain: string) {
@@ -140,10 +123,8 @@ export default async function proxy(req: NextRequest) {
             return res;
         }
 
-        // Dual-auth gate: EITHER NextAuth (existing users) OR Better Auth (migrated)
-        const apiToken = await getSessionToken(req);
-        const apiHasBA = hasBetterAuthCookie(req);
-        if (apiToken || apiHasBA) {
+        // Auth gate: Better Auth session cookie
+        if (hasBetterAuthCookie(req)) {
             if (tenantSubdomain) res.headers.set("x-tenant-subdomain", tenantSubdomain);
             return res;
         }
@@ -195,13 +176,9 @@ export default async function proxy(req: NextRequest) {
         }
     }
 
-    // Dual-auth gate: Check BOTH NextAuth (existing users) and Better Auth
-    // (migrated users). Either session passes through.
-    const token = await getSessionToken(req);
-    const hasBA = hasBetterAuthCookie(req);
-
-    if (token || hasBA) {
-        // User is logged in via either system, allow through
+    // Auth gate: Better Auth session cookie presence
+    if (hasBetterAuthCookie(req)) {
+        // User has a Better Auth session cookie, allow through
         const res = NextResponse.next();
         if (tenantSubdomain) res.headers.set("x-tenant-subdomain", tenantSubdomain);
         return res;
