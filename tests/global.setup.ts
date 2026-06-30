@@ -176,7 +176,10 @@ async function globalSetup(config: FullConfig) {
         if (a === 'secure') cookie.secure = true;
         if (a.startsWith('domain=')) cookie.domain = a.split('=')[1];
         if (a.startsWith('path=')) cookie.path = a.split('=')[1];
-        if (a.startsWith('samesite=')) cookie.sameSite = a.split('=')[1] as SetupCookie['sameSite'];
+        if (a.startsWith('samesite=')) {
+          const raw = a.split('=')[1];
+          cookie.sameSite = (raw.charAt(0).toUpperCase() + raw.slice(1)) as SetupCookie['sameSite'];
+        }
       }
       cookies.push(cookie);
     }
