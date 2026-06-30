@@ -3,7 +3,7 @@ import { chromium, type FullConfig } from '@playwright/test';
 import { PrismaClient } from '../src/generated/prisma/index.js';
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
-import bcrypt from 'bcryptjs';
+import { hashPassword } from 'better-auth/crypto';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -63,7 +63,7 @@ async function globalSetup(config: FullConfig) {
 
     // 2. Generate a secure random password and hash it
     const password = crypto.randomUUID();
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await hashPassword(password);
 
     // 2.5 Defensive Cleanup for Mock Plugin
     console.log(`[Setup] Cleaning up any existing mock plugins...`);

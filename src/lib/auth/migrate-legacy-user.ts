@@ -1,6 +1,7 @@
 "use server";
 
-import { compareSync, hashSync } from "bcryptjs";
+import { compareSync } from "bcryptjs";
+import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@/lib/db";
 
 const DEMO_ADMIN_EMAIL = "admin@worldwideview.local";
@@ -29,7 +30,7 @@ export async function migrateLegacyUserIfNeeded(
 
   // Password verified — create a BetterAuthUser + BetterAuthAccount
   const userId = crypto.randomUUID();
-  const hashedPassword = hashSync(password, 12);
+  const hashedPassword = await hashPassword(password);
 
   await prisma.$transaction([
     prisma.betterAuthUser.create({
