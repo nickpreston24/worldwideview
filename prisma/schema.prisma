@@ -110,20 +110,15 @@ model UserApiKey {
   @@map("user_api_keys")
 }
 
-/// Legacy NextAuth user table — kept as migration source for migrateLegacyUserIfNeeded().
-/// Do NOT write to this table in normal app operation. See ADR-0008 and Phase 1.8 of
-/// cloud launch plan.
+/// Legacy NextAuth user table — migration source only. See ADR-0008 Phase 1.8. Do NOT add relations.
 model User {
-  id             String            @id @default(uuid())
+  id             String   @id @default(uuid())
   email          String
   name           String
   hashedPassword String
-  role           String            @default("user")
-  sessionVersion Int               @default(0)
-  createdAt      DateTime          @default(now())
-  favorites      Favorite[]
-  memberships    WorkspaceMember[]
-  apiKeys        UserApiKey[]
+  role           String   @default("user")
+  sessionVersion Int      @default(0)
+  createdAt      DateTime @default(now())
 
   @@unique([email])
   @@map("users")
