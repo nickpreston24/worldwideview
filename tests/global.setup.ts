@@ -158,7 +158,7 @@ async function globalSetup(config: FullConfig) {
     }
     const hmac = crypto.createHmac('sha256', authSecret);
     hmac.update(sessionToken);
-    const signature = hmac.digest('base64').replace(/=+$/, '');
+    const signature = hmac.digest('base64');
     const signedValue = `${sessionToken}.${signature}`;
 
     // 5. Save storage state with the signed session cookie
