@@ -4,14 +4,11 @@
  * This is the auth SERVER instance — hosts the Better Auth runtime with
  * Prisma adapter.
  *
- * Coexists with NextAuth during Phase 71 migration. Both auth systems share
- * the same PostgreSQL database using lowercase @@map() table names.
- *
  * Key decisions:
- *  - cookiePrefix "better-auth" avoids collision with NextAuth's "next-auth"
+ *  - cookiePrefix "better-auth" avoids collision with other auth cookies
  *  - trustedOrigins configurable via env vars with localhost fallbacks
- *  - basePath: "/api/ba" to avoid catch-all collision with NextAuth during coexistence
- *  - All 6 Phase 72 plugins configured: organization, admin, jwt, oneTimeToken,
+ *  - basePath: "/api/ba" for the Better Auth API handler
+ *  - All 6 plugins configured: organization, admin, jwt, oneTimeToken,
  *    apiKey, and stripe (stripe gated on isCloud)
  */
 import { betterAuth } from "better-auth";

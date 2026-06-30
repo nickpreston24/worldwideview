@@ -101,7 +101,7 @@ describe("Better Auth instance", () => {
         expect(auth.options.emailAndPassword?.enabled).toBe(true);
     });
 
-    it("configures cookiePrefix to avoid collision with NextAuth", () => {
+    it("configures cookiePrefix", () => {
         expect(auth.options.advanced?.cookiePrefix).toBe("better-auth");
     });
 

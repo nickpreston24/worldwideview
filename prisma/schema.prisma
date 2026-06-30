@@ -7,21 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id             String            @id @default(uuid())
-  email          String
-  name           String
-  hashedPassword String
-  role           String            @default("user")
-  // Bumping this invalidates all of the user's existing JWT sessions.
-  // The JWT embeds the value at sign-in; the auth jwt callback rejects any
-  // token whose value no longer matches the DB (logout-everywhere / revoke).
-  sessionVersion Int               @default(0)
-  createdAt      DateTime          @default(now())
-  @@unique([email])
-  @@map("users")
-}
-
 model Favorite {
   id         String   @id @default(uuid())
   tenantId   String?
@@ -123,6 +108,20 @@ model UserApiKey {
 
   @@index([tenantId])
   @@map("user_api_keys")
+}
+
+/// Legacy NextAuth user table — migration source only. See ADR-0008 Phase 1.8. Do NOT add relations.
+model User {
+  id             String   @id @default(uuid())
+  email          String
+  name           String
+  hashedPassword String
+  role           String   @default("user")
+  sessionVersion Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  @@unique([email])
+  @@map("users")
 }
 
 // -----------------------------------------------------------------------

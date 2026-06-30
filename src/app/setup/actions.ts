@@ -1,6 +1,6 @@
 "use server";
 
-import { hashSync } from "bcryptjs";
+import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@/lib/db";
 import { isDemo } from "@/core/edition";
 import { evaluatePasswordStrength, MIN_PASSWORD_SCORE } from "@/lib/password-strength";
@@ -8,6 +8,50 @@ import { evaluatePasswordStrength, MIN_PASSWORD_SCORE } from "@/lib/password-str
 interface SetupResult {
     success: boolean;
     error?: string;
+}
+
+const DEMO_ADMIN_EMAIL = "admin@worldwideview.local";
+const DEMO_ADMIN_NAME = "Demo Admin";
+
+/**
+ * Seed the demo admin account on first boot in demo edition.
+ * Reads WWV_DEMO_ADMIN_SECRET from env and creates a Better Auth user
+ * with email/password matching the demo admin credentials.
+ * Idempotent: safe to call on every startup.
+ */
+export async function seedDemoAdminIfNeeded(): Promise<void> {
+    if (!isDemo) return;
+    const adminSecret = process.env.WWV_DEMO_ADMIN_SECRET?.trim();
+    if (!adminSecret) return;
+
+    const existing = await prisma.betterAuthUser.findUnique({
+        where: { email: DEMO_ADMIN_EMAIL },
+    });
+    if (existing) return;
+
+    const userId = crypto.randomUUID();
+    const hashedPassword = await hashPassword(adminSecret);
+
+    await prisma.$transaction([
+        prisma.betterAuthUser.create({
+            data: {
+                id: userId,
+                email: DEMO_ADMIN_EMAIL,
+                name: DEMO_ADMIN_NAME,
+                emailVerified: false,
+                role: "demo-admin",
+            },
+        }),
+        prisma.betterAuthAccount.create({
+            data: {
+                id: crypto.randomUUID(),
+                accountId: DEMO_ADMIN_EMAIL,
+                providerId: "credential",
+                userId,
+                password: hashedPassword,
+            },
+        }),
+    ]);
 }
 
 /** Create the initial admin account. Rejects if any user already exists.
@@ -42,7 +86,7 @@ export async function createAdminAccount(formData: FormData): Promise<SetupResul
     }
 
     const userId = crypto.randomUUID();
-    const hashedPassword = hashSync(password, 12);
+    const hashedPassword = await hashPassword(password);
 
     await prisma.$transaction([
         prisma.betterAuthUser.create({
