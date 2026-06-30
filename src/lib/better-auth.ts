@@ -2,13 +2,12 @@
  * Better Auth instance configuration.
  *
  * This is the auth SERVER instance — hosts the Better Auth runtime with
- * Prisma adapter and cross-subdomain cookie support.
+ * Prisma adapter.
  *
  * Coexists with NextAuth during Phase 71 migration. Both auth systems share
  * the same PostgreSQL database using lowercase @@map() table names.
  *
  * Key decisions:
- *  - crossSubDomainCookies gated on isCloud (local uses exact-domain cookies)
  *  - cookiePrefix "better-auth" avoids collision with NextAuth's "next-auth"
  *  - trustedOrigins configurable via env vars with localhost fallbacks
  *  - basePath: "/api/ba" to avoid catch-all collision with NextAuth during coexistence
@@ -72,15 +71,7 @@ export const auth = betterAuth({
     verification: {
         modelName: "betterAuthVerification",
     },
-    // Cross-subdomain cookies: .wwv.local for cloud, exact domain for local.
-    // Local edition: cookies scoped to exact host (localhost/wwv.local),
-    // because localhost has special cookie domain rules and Safari ITP
-    // blocks .local cross-domain cookies on non-HTTPS origins.
     advanced: {
-        crossSubDomainCookies: {
-            enabled: isCloud,
-            domain: ".wwv.local",
-        },
         cookiePrefix: "better-auth",
     },
     // Trusted origins: allow requests from all three apps in dev and prod.

@@ -4,7 +4,7 @@
  * Verifies:
  *  1. The auth instance initializes with the expected API methods
  *  2. Email/password auth is enabled
- *  3. Cross-subdomain cookies are configured
+ *  3. Cookie prefix is configured
  *  4. The Prisma adapter is wired correctly
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -99,21 +99,6 @@ describe("Better Auth instance", () => {
     it("has emailAndPassword enabled", () => {
         expect(auth.options.emailAndPassword).toBeDefined();
         expect(auth.options.emailAndPassword?.enabled).toBe(true);
-    });
-
-    it("configures cross-subdomain cookies based on edition", async () => {
-        // In local edition: cross-subdomain should be disabled
-        const { auth: localAuth } = await import("@/lib/better-auth");
-        expect(localAuth.options.advanced?.crossSubDomainCookies?.enabled).toBe(false);
-    });
-
-    it("enables cross-subdomain cookies in cloud edition", async () => {
-        mockIsCloud = true;
-        vi.resetModules();
-        const mod = await import("@/lib/better-auth");
-        const cloudAuth = mod.auth;
-        expect(cloudAuth.options.advanced?.crossSubDomainCookies?.enabled).toBe(true);
-        expect(cloudAuth.options.advanced?.crossSubDomainCookies?.domain).toBe(".wwv.local");
     });
 
     it("configures cookiePrefix to avoid collision with NextAuth", () => {
