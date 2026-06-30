@@ -53,8 +53,8 @@ jobs:
             exit 1
           fi
           
-          if ! grep -q "^AUTH_SECRET=[a-f0-9]\{64\}$" .env; then
-            echo "AUTH_SECRET was not generated correctly or is missing"
+          if ! grep -q "^BETTER_AUTH_SECRET=[a-f0-9]\{64\}$" .env; then
+            echo "BETTER_AUTH_SECRET was not generated correctly or is missing"
             exit 1
           fi
 
@@ -109,8 +109,8 @@ jobs:
             exit 1
           fi
           
-          if ! grep -q "^AUTH_SECRET=[a-f0-9]\{64\}$" .env; then
-            echo "AUTH_SECRET was not generated correctly or is missing"
+          if ! grep -q "^BETTER_AUTH_SECRET=[a-f0-9]\{64\}$" .env; then
+            echo "BETTER_AUTH_SECRET was not generated correctly or is missing"
             exit 1
           fi
 
