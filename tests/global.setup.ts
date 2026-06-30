@@ -136,44 +136,59 @@ async function globalSetup(config: FullConfig) {
       }
     }
 
-    // 4. Create session directly in DB and save storage state
-    // Better Auth requires HMAC-SHA256 signed cookies: token.base64_sig
-    // An unsigned cookie passes proxy.ts (checks presence only) but fails
-    // route handlers using getServerSession() -> getSignedCookie().
-    console.log(`[Setup] Creating session in database for storage state...`);
-    const sessionToken = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await prisma.betterAuthSession.create({
-      data: {
-        userId: betterUser.id,
-        token: sessionToken,
-        expiresAt,
-      },
+    // 4. Sign in via Better Auth API directly (captures real Set-Cookie headers)
+    console.log(`[Setup] Signing in via Better Auth API...`);
+    const signInResponse = await fetch(`${baseURL}/api/ba/sign-in/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: baseURL, Referer: baseURL },
+      body: JSON.stringify({ email: TEST_USER_EMAIL, password }),
+      redirect: 'manual',
     });
 
-    // HMAC-SHA256 sign the session token using BETTER_AUTH_SECRET
-    const authSecret = process.env.BETTER_AUTH_SECRET;
-    if (!authSecret) {
-      throw new Error('[Setup] BETTER_AUTH_SECRET is not set — cannot sign session cookie');
+    if (!signInResponse.ok) {
+      const body = await signInResponse.text();
+      throw new Error(`Sign-in API returned ${signInResponse.status}: ${body}`);
     }
-    const hmac = crypto.createHmac('sha256', authSecret);
-    hmac.update(sessionToken);
-    const signature = hmac.digest('base64');
-    const signedValue = `${sessionToken}.${signature}`;
 
-    // 5. Save storage state with the signed session cookie
-    const cookies = [{
-      name: 'better-auth.session_token',
-      value: signedValue,
-      domain: 'localhost',
-      path: '/',
-      httpOnly: false,
-      secure: false,
-      sameSite: 'Lax' as const,
-    }];
+    // Extract Set-Cookie headers (Node.js 18+ getSetCookie)
+    const rawCookies = typeof signInResponse.headers.getSetCookie === 'function'
+      ? signInResponse.headers.getSetCookie()
+      : [];
+    if (rawCookies.length === 0) {
+      const first = signInResponse.headers.get('set-cookie');
+      if (first) rawCookies.push(first);
+    }
+
+    interface SetupCookie {
+      name: string; value: string; domain: string; path: string;
+      httpOnly: boolean; secure: boolean; sameSite: 'Lax' | 'Strict' | 'None';
+    }
+    const cookies: SetupCookie[] = [];
+    for (const raw of rawCookies) {
+      const [nameVal, ...attrs] = raw.split(';');
+      const eqIdx = nameVal.indexOf('=');
+      const name = nameVal.substring(0, eqIdx).trim();
+      const value = nameVal.substring(eqIdx + 1).trim();
+      const cookie: SetupCookie = { name, value, domain: 'localhost', path: '/', httpOnly: false, secure: false, sameSite: 'Lax' };
+      for (const attr of attrs) {
+        const a = attr.trim().toLowerCase();
+        if (a === 'httponly') cookie.httpOnly = true;
+        if (a === 'secure') cookie.secure = true;
+        if (a.startsWith('domain=')) cookie.domain = a.split('=')[1];
+        if (a.startsWith('path=')) cookie.path = a.split('=')[1];
+        if (a.startsWith('samesite=')) cookie.sameSite = a.split('=')[1] as SetupCookie['sameSite'];
+      }
+      cookies.push(cookie);
+    }
+
+    if (cookies.length === 0) {
+      throw new Error('No cookies returned from sign-in API - auth may have failed silently');
+    }
+
+    // 5. Save storage state with real session cookie from the API response
     if (typeof storageState === 'string') {
       fs.writeFileSync(storageState, JSON.stringify({ cookies, origins: [] }, null, 2));
-      console.log(`[Setup] Storage state saved with signed session token.`);
+      console.log(`[Setup] Storage state saved with ${cookies.length} cookies.`);
     } else {
       console.warn("Storage state path is not a string, skipping saving context.");
     }
